@@ -110,6 +110,8 @@ For deployment, set these in Vercel:
 | `DATABASE_URL` | PostgreSQL connection string |
 | `AUTH_SECRET` | NextAuth secret key |
 | `NEXTAUTH_URL` | Your Vercel deployment URL |
+| `OPENROUTER_API_KEY` | Key for AI Study Notes feature |
+| `GEMINI_API_KEY` | (Optional) Fallback for AI features |
 
 ## License
 
