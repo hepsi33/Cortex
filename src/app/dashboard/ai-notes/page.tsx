@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, Sparkles, Youtube, FileText, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
 
 export const dynamic = "force-dynamic";
 
@@ -121,8 +122,8 @@ export default function AINotesPage() {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <div className="prose prose-invert max-w-none prose-headings:text-purple-300 prose-a:text-blue-400 prose-strong:text-white text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
-                                {notes}
+                            <div className="prose prose-invert max-w-none prose-headings:text-purple-300 prose-a:text-blue-400 prose-strong:text-white text-gray-300 font-sans leading-relaxed">
+                                <ReactMarkdown>{notes}</ReactMarkdown>
                             </div>
                         </CardContent>
                     </Card>

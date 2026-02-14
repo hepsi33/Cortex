@@ -250,10 +250,10 @@ export async function POST(req: Request) {
       try {
         // Optional: cookie-based agent for restricted videos
         // Set YT_COOKIES env var to cookie lines if you need it.
-        const cookies = process.env.YT_COOKIES;
-        const agent = cookies ? ytdl.createAgent(cookies.split("\n").filter(Boolean)) : undefined;
+        // const cookies = process.env.YT_COOKIES;
+        // const agent = cookies ? ytdl.createAgent(cookies.split("\n").filter(Boolean)) : undefined;
 
-        const info = await ytdl.getInfo(videoId, agent ? { agent } : undefined);
+        const info = await ytdl.getInfo(videoId); //, agent ? { agent } : undefined);
         const tracks = (info as any)?.player_response?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
 
         if (!Array.isArray(tracks) || tracks.length === 0) {
@@ -280,10 +280,10 @@ export async function POST(req: Request) {
     if (transcriptText.length < 50) {
       const st = Date.now();
       try {
-        const cookies = process.env.YT_COOKIES;
-        const agent = cookies ? ytdl.createAgent(cookies.split("\n").filter(Boolean)) : undefined;
+        // const cookies = process.env.YT_COOKIES;
+        // const agent = cookies ? ytdl.createAgent(cookies.split("\n").filter(Boolean)) : undefined;
 
-        const info = await ytdl.getBasicInfo(videoId, agent ? { agent } : undefined);
+        const info = await ytdl.getBasicInfo(videoId); //, agent ? { agent } : undefined);
         const vd = info?.videoDetails as any;
 
         const metadata = {
@@ -316,15 +316,22 @@ Video metadata:
 - Description:\n${metadata.description}
 
 Task:
-Create useful study notes anyway.
+Create useful notes anyway based on the metadata above.
 Strictly follow this structure:
-## 📌 Overview
-## 🔑 Likely Key Points
-- Point 1
-- Point 2
-## 📝 Structured Notes
-## ✅ What to verify while watching
-## 🧠 Quick Quiz (3 questions)
+## 🎬 Video Summary
+Provide a concise summary of what this video is likely about.
+## 🔑 Key Points
+- Key point 1
+- Key point 2
+- (list all key points)
+## 📝 Detailed Notes
+Provide structured, in-depth notes covering each topic.
+## 💡 Important Facts
+- Fact 1
+- Fact 2
+- (list all important facts, statistics, definitions, or takeaways)
+## 🚀 What to Learn Next
+Suggest related topics, resources, or next steps for further learning.
 `;
 
         const stAi = Date.now();
@@ -370,15 +377,23 @@ Strictly follow this structure:
       const clipped = transcriptText.slice(0, 25000);
 
       const prompt = `
-You are an expert tutor. Create comprehensive study notes based on the following YouTube video transcript.
+You are an expert tutor. Create comprehensive notes based on the following YouTube video transcript.
 
 Strictly follow this structure:
-## 📌 Overview
-## 🔑 Key Concepts
-- **Concept 1:** ...
-- **Concept 2:** ...
+## 🎬 Video Summary
+Provide a concise summary of the entire video content.
+## 🔑 Key Points
+- Key point 1
+- Key point 2
+- (list all key points covered in the video)
 ## 📝 Detailed Notes
-## 🧠 Quick Quiz (3 questions)
+Provide structured, in-depth notes covering each topic discussed in the video.
+## 💡 Important Facts
+- Fact 1
+- Fact 2
+- (list all important facts, statistics, definitions, or takeaways)
+## 🚀 What to Learn Next
+Suggest related topics, resources, or next steps for further learning based on the video content.
 
 ---
 Transcript:\n${clipped}
@@ -396,6 +411,8 @@ Transcript:\n${clipped}
         const notes = completion.choices?.[0]?.message?.content ?? "No notes generated.";
         push("ai/transcript-notes", true, stAi, { outLen: notes.length, transcriptLen: transcriptText.length });
 
+        console.log("Trace:", JSON.stringify(trace, null, 2)); // Added debug log
+
         return NextResponse.json(
           {
             notes,
@@ -408,6 +425,7 @@ Transcript:\n${clipped}
         );
       } catch (e: any) {
         push("ai/transcript-notes", false, stAi, summarizeError(e));
+        console.log("Trace (Error):", JSON.stringify(trace, null, 2)); // Added debug log
 
         // Handle quota/busy
         const msg = String(e?.message ?? e);
@@ -427,6 +445,7 @@ Transcript:\n${clipped}
     }
   } catch (e: any) {
     trace.push({ at: nowIso(), step: "fatal", ok: false, details: summarizeError(e) });
+    console.log("Trace (Fatal):", JSON.stringify(trace, null, 2)); // Added debug log
     return NextResponse.json(
       {
         error: "Internal Server Error",

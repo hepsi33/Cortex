@@ -30,6 +30,7 @@
     "openai": "^6.19.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
     "tailwind-merge": "^3.4.0",
     "youtube-caption-scraper": "^1.0.0",
     "youtube-dl-exec": "^3.1.1",
