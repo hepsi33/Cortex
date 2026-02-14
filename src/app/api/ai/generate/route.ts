@@ -276,33 +276,107 @@ export async function POST(req: Request) {
       }
     }
 
-    // 6) If still no transcript, do metadata fallback
+    // 6) If still no transcript, do metadata fallback (WITHOUT ytdl-core)
     if (transcriptText.length < 50) {
       const st = Date.now();
       try {
-        // const cookies = process.env.YT_COOKIES;
-        // const agent = cookies ? ytdl.createAgent(cookies.split("\n").filter(Boolean)) : undefined;
-
-        const info = await ytdl.getBasicInfo(videoId); //, agent ? { agent } : undefined);
-        const vd = info?.videoDetails as any;
-
-        const metadata = {
-          title: vd?.title ?? "(unknown title)",
-          description: vd?.description ?? vd?.shortDescription ?? "",
-          author: vd?.author?.name ?? vd?.ownerChannelName ?? vd?.author ?? "Unknown",
-          viewCount: vd?.viewCount ?? "0",
-          category: vd?.category ?? "Unknown",
-          lengthSeconds: vd?.lengthSeconds ?? "",
-          keywords: Array.isArray(vd?.keywords) ? vd.keywords.slice(0, 20) : [],
+        let metadata = {
+          title: "(unknown title)",
+          description: "",
+          author: "Unknown",
+          viewCount: "0",
+          category: "Unknown",
+          lengthSeconds: "",
+          keywords: [] as string[],
         };
 
-        push("strategy4/metadata-fetch", true, st, {
+        // 6a) Try YouTube oEmbed API (very reliable, lightweight)
+        try {
+          const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+          const oembedRes = await fetchWithTimeout(oembedUrl, { timeoutMs: 6000 });
+          if (oembedRes.ok) {
+            const oembedData = await oembedRes.json();
+            metadata.title = oembedData?.title ?? metadata.title;
+            metadata.author = oembedData?.author_name ?? metadata.author;
+            push("strategy4a/oembed", true, st, { title: metadata.title, author: metadata.author });
+          }
+        } catch (e: any) {
+          push("strategy4a/oembed", false, st, summarizeError(e));
+        }
+
+        // 6b) Try scraping the YouTube watch page for description and more metadata
+        try {
+          const pageUrl = `https://www.youtube.com/watch?v=${videoId}`;
+          const pageRes = await fetchWithTimeout(pageUrl, {
+            timeoutMs: 10000,
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+              "Accept-Language": "en-US,en;q=0.9",
+            },
+          });
+          if (pageRes.ok) {
+            const html = await pageRes.text();
+
+            // Extract description from meta tag
+            const descMatch = html.match(/<meta\s+name="description"\s+content="([^"]*)"/) ||
+              html.match(/<meta\s+property="og:description"\s+content="([^"]*)"/);
+            if (descMatch?.[1]) {
+              metadata.description = descMatch[1]
+                .replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+            }
+
+            // Extract title from og:title if oembed missed it
+            if (metadata.title === "(unknown title)") {
+              const titleMatch = html.match(/<meta\s+property="og:title"\s+content="([^"]*)"/) ||
+                html.match(/<title>([^<]+)<\/title>/);
+              if (titleMatch?.[1]) metadata.title = titleMatch[1];
+            }
+
+            // Try to extract keywords
+            const kwMatch = html.match(/<meta\s+name="keywords"\s+content="([^"]*)"/);
+            if (kwMatch?.[1]) {
+              metadata.keywords = kwMatch[1].split(",").map(k => k.trim()).filter(Boolean).slice(0, 20);
+            }
+
+            // Try to extract longer description from microdata / JSON-LD
+            const jsonLdMatch = html.match(/<script\s+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/);
+            if (jsonLdMatch?.[1]) {
+              try {
+                const ld = JSON.parse(jsonLdMatch[1]);
+                if (ld?.description && ld.description.length > (metadata.description?.length || 0)) {
+                  metadata.description = ld.description;
+                }
+                if (ld?.duration) {
+                  // ISO 8601 duration like PT5M30S
+                  const durMatch = String(ld.duration).match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+                  if (durMatch) {
+                    const h = parseInt(durMatch[1] || "0");
+                    const m = parseInt(durMatch[2] || "0");
+                    const s = parseInt(durMatch[3] || "0");
+                    metadata.lengthSeconds = String(h * 3600 + m * 60 + s);
+                  }
+                }
+                if (ld?.interactionCount) metadata.viewCount = String(ld.interactionCount);
+                if (ld?.genre) metadata.category = ld.genre;
+              } catch { /* ignore JSON parse errors */ }
+            }
+
+            push("strategy4b/page-scrape", true, Date.now() - st, {
+              title: metadata.title,
+              descLen: metadata.description.length,
+            });
+          }
+        } catch (e: any) {
+          push("strategy4b/page-scrape", false, st, summarizeError(e));
+        }
+
+        push("strategy4/metadata-combined", true, st, {
           title: metadata.title,
           descLen: metadata.description.length,
           author: metadata.author,
         });
 
-        // If description is empty, we still can give notes — but warn clearly.
+        // Build the AI prompt from metadata
         const prompt = `
 ⚠️ NOTE: No transcript was available for this video. The notes below are inferred from metadata and may miss details.
 
@@ -345,6 +419,7 @@ Suggest related topics, resources, or next steps for further learning.
 
         const notes = completion.choices?.[0]?.message?.content ?? "No analysis generated.";
         push("strategy4/ai", true, stAi, { outLen: notes.length });
+        console.log("Trace (metadata):", JSON.stringify(trace, null, 2));
 
         return NextResponse.json(
           {
@@ -358,7 +433,6 @@ Suggest related topics, resources, or next steps for further learning.
       } catch (e: any) {
         push("strategy4/metadata-fallback", false, st, summarizeError(e));
 
-        // IMPORTANT: This returns the REAL reason now.
         return NextResponse.json(
           {
             error: "No transcript found, and metadata fallback failed.",

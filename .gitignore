@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ytdl-core debug dumps
+*-player-script.js
+
+# temp/debug files
+temp-*
+debug-*
+test-*
