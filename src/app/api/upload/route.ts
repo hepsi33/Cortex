@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { documents } from '@/drizzle/schema';
-import { addToQueue } from '@/lib/queue';
-import { auth } from '@/lib/auth'; // Assuming auth is exported from here
-import { nanoid } from 'nanoid';
+import { auth } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
     try {
@@ -50,8 +48,8 @@ export async function POST(req: NextRequest) {
 
         const { processDocument } = await import('@/lib/processor');
 
-        // Fire and forget (with error logging)
-        processDocument(doc.id, buffer, file.type).catch(err => console.error('Background processing failed:', err));
+        // Fire and forget — pass pre-parsed text directly
+        processDocument(doc.id, textContent).catch(err => console.error('Background processing failed:', err));
 
         return NextResponse.json({ id: doc.id, status: 'pending' }, { status: 202 });
 

@@ -39,10 +39,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
         // Reprocess using stored content
         const { processDocument } = await import('@/lib/processor');
-        const buffer = Buffer.from(doc.content, 'utf-8');
-        const fileType = doc.fileType || 'text/plain';
 
-        processDocument(doc.id, buffer, fileType).catch(err =>
+        processDocument(doc.id, doc.content).catch(err =>
             console.error('Retry processing failed:', err)
         );
 

@@ -8,21 +8,9 @@ import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
 
-export async function processDocument(documentId: string, fileBuffer: Buffer, fileType: string) {
+export async function processDocument(documentId: string, textContent: string) {
     console.log(`Starting processing for document ${documentId}`);
     try {
-        // 1. Parse content
-        let textContent = '';
-        if (fileType === 'application/pdf') {
-            // pdf-parse v2 API: constructor accepts { data: Buffer }
-            const { PDFParse } = eval("require('pdf-parse')");
-            const parser = new PDFParse({ data: fileBuffer, verbosity: 0 });
-            const result = await parser.getText();
-            textContent = result.text;
-            await parser.destroy();
-        } else {
-            textContent = fileBuffer.toString('utf-8');
-        }
 
         // Update status to indexing
         await db.update(documents)
