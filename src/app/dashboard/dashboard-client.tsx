@@ -105,6 +105,20 @@ export function UserDashboardClient({ displayName, email }: DashboardClientProps
                                 </CardContent>
                             </Card>
                         </Link>
+                        <Link href="/dashboard/rag">
+                            <Card className="glass border-white/10 hover:bg-white/5 transition-colors cursor-pointer group">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <CardTitle className="text-sm font-medium text-gray-300 group-hover:text-white">Chat with Documents</CardTitle>
+                                    <Sparkles className="h-4 w-4 text-blue-400 group-hover:scale-110 transition-transform" />
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold text-white">RAG Assistant</div>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                        Upload PDFs and ask questions with AI citations
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        </Link>
                     </div>
                 </div>
 

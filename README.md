@@ -1,6 +1,6 @@
 # Role-Based Dashboard
 
-A premium, full-stack dashboard application with secure authentication, role-based access control, AI-powered YouTube video analysis, and a sleek dark theme UI.
+A premium, full-stack dashboard application with secure authentication, role-based access control, AI-powered YouTube video analysis, RAG-based document chat, and a sleek dark theme UI.
 
 🔗 **Live Demo:** [https://role-based-three.vercel.app](https://role-based-three.vercel.app)
 
@@ -34,6 +34,13 @@ A premium, full-stack dashboard application with secure authentication, role-bas
   - 🚀 **What to Learn Next** — suggested topics and resources
 - **Markdown rendering** — notes are beautifully formatted with proper headings, lists, and styling
 
+### 📄 RAG Document Chat
+- **Upload PDF or TXT files** — parsed and chunked automatically
+- **Per-document chat** — each document gets its own chat interface
+- **Vector search** — embeddings generated via **Gemini** (`gemini-embedding-001`, 3072 dimensions) stored in PostgreSQL with `pgvector`
+- **AI answers** — relevant chunks retrieved and answered by **Groq** (`llama-3.3-70b-versatile`) with citation support
+- **Card grid layout** — browse all documents, see status, and click "View & Chat"
+
 ### 📊 Admin Dashboard
 - View user statistics (approved, pending, rejected)
 - Approve or reject user registrations
@@ -55,6 +62,7 @@ A premium, full-stack dashboard application with secure authentication, role-bas
 | **Database** | PostgreSQL (Neon) with Drizzle ORM |
 | **Authentication** | NextAuth.js v5 (Auth.js) |
 | **AI** | Google Gemini 2.0 Flash via OpenRouter |
+| **RAG** | Gemini Embeddings, Groq LLM, pgvector |
 | **Deployment** | Vercel |
 
 ---
@@ -64,8 +72,10 @@ A premium, full-stack dashboard application with secure authentication, role-bas
 ### Prerequisites
 
 - Node.js 18+
-- PostgreSQL database (or [Neon](https://neon.tech) account)
-- [OpenRouter API key](https://openrouter.ai) (for AI features)
+- PostgreSQL database (or [Neon](https://neon.tech) account) with `pgvector` extension
+- [OpenRouter API key](https://openrouter.ai) (for AI notes)
+- [Gemini API key](https://aistudio.google.com) (for RAG embeddings)
+- [Groq API key](https://console.groq.com) (for RAG chat)
 
 ### Installation
 
@@ -92,6 +102,7 @@ A premium, full-stack dashboard application with secure authentication, role-bas
    NEXTAUTH_URL="http://localhost:3000"
    OPENROUTER_API_KEY="your-openrouter-api-key"
    GEMINI_API_KEY="your-gemini-api-key"
+   GROQ_API_KEY="your-groq-api-key"
    ```
 
 4. **Push the database schema:**
@@ -119,7 +130,7 @@ A premium, full-stack dashboard application with secure authentication, role-bas
 ```
 Sign Up → Pending Approval → Admin Approves/Rejects
                                     ↓
-                        ✅ Approved → Dashboard + AI Notes
+                        ✅ Approved → Dashboard + AI Notes + RAG Chat
                         ❌ Rejected → Access Denied Page
 ```
 
@@ -140,6 +151,8 @@ src/
 │   ├── admin/              # Admin dashboard (stats + user management)
 │   ├── dashboard/
 │   │   ├── ai-notes/       # AI Study Notes generator
+│   │   ├── rag/            # RAG document grid
+│   │   │   └── [documentId]/ # Per-document chat page
 │   │   └── page.tsx        # Main dashboard
 │   ├── get-started/        # Getting started / onboarding
 │   ├── login/              # Login page
@@ -148,10 +161,14 @@ src/
 │   └── api/
 │       ├── auth/           # Auth endpoints (login, signup)
 │       ├── admin/          # Admin API (stats, user management)
-│       └── ai/generate/    # AI notes generation endpoint
-├── components/             # Reusable UI components (buttons, cards, inputs)
+│       ├── ai/generate/    # AI notes generation endpoint
+│       ├── chat/           # RAG chat API (per-document)
+│       ├── documents/      # Document list & delete API
+│       └── upload/         # File upload & processing API
+├── components/
+│   └── rag/               # ChatInterface, DocumentManager
 ├── drizzle/                # Database schema & seed scripts
-└── lib/                    # Utilities (auth config, db, OpenRouter client)
+└── lib/                    # Utilities (auth, db, processor, queue)
 ```
 
 ---
@@ -163,8 +180,9 @@ src/
 | `DATABASE_URL` | ✅ | PostgreSQL connection string |
 | `AUTH_SECRET` | ✅ | NextAuth secret key |
 | `NEXTAUTH_URL` | ✅ | App URL (`http://localhost:3000` for dev) |
-| `OPENROUTER_API_KEY` | ✅ | OpenRouter API key for AI features |
-| `GEMINI_API_KEY` | ⬜ | Optional fallback for AI features |
+| `OPENROUTER_API_KEY` | ✅ | OpenRouter API key for AI notes |
+| `GEMINI_API_KEY` | ✅ | Gemini API key for RAG embeddings |
+| `GROQ_API_KEY` | ✅ | Groq API key for RAG chat LLM |
 
 ---
 
