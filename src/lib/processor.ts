@@ -8,6 +8,22 @@ import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
 
+// Retry helper for flaky fetch inside Next.js
+async function embedWithRetry(content: string, maxRetries = 3): Promise<number[]> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const result = await model.embedContent(content);
+            return result.embedding.values;
+        } catch (error: any) {
+            console.warn(`Embedding attempt ${attempt}/${maxRetries} failed:`, error.message);
+            if (attempt === maxRetries) throw error;
+            // Exponential backoff
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+    }
+    throw new Error('Unreachable');
+}
+
 export async function processDocument(documentId: string, textContent: string) {
     console.log(`Starting processing for document ${documentId}`);
     try {
@@ -17,8 +33,7 @@ export async function processDocument(documentId: string, textContent: string) {
             .set({ status: 'indexing' })
             .where(eq(documents.id, documentId));
 
-        // 2. Split text
-        // Use langchain splitter or simple splitter
+        // Split text
         const splitter = new RecursiveCharacterTextSplitter({
             chunkSize: 1000,
             chunkOverlap: 200,
@@ -28,45 +43,37 @@ export async function processDocument(documentId: string, textContent: string) {
 
         console.log(`Generated ${chunks.length} chunks for document ${documentId}`);
 
-        // 3. Generate embeddings and save
-        // 3. Generate embeddings and save
+        // Generate embeddings sequentially to avoid overwhelming Next.js fetch
         const documentsData: any[] = [];
 
-        // Process in batches of 5 to avoid rate limits
-        const BATCH_SIZE = 5;
+        for (let i = 0; i < chunks.length; i++) {
+            const chunk = chunks[i];
+            const content = chunk.pageContent;
 
-        for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-            const batch = chunks.slice(i, i + BATCH_SIZE);
+            const vector = await embedWithRetry(content);
 
-            const batchPromises = batch.map(async (chunk: any, batchIndex: number) => {
-                const content = chunk.pageContent;
-                // Generate embedding
-                const result = await model.embedContent(content);
-                const vector = result.embedding.values;
-
-                return {
-                    documentId: documentId,
-                    content: content,
-                    metadata: {
-                        page: chunk.metadata.loc?.pageNumber,
-                        chunkIndex: i + batchIndex
-                    },
-                    vector: vector
-                };
+            documentsData.push({
+                documentId: documentId,
+                content: content,
+                metadata: {
+                    page: chunk.metadata.loc?.pageNumber,
+                    chunkIndex: i
+                },
+                vector: vector
             });
 
-            const results = await Promise.all(batchPromises);
-            documentsData.push(...results);
+            console.log(`Embedded chunk ${i + 1}/${chunks.length} for document ${documentId}`);
 
-            // Small delay to be nice to API
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Small delay between requests
+            if (i < chunks.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
         }
 
         // Insert into DB
-        // Drizzle insert many
         await db.insert(embeddings).values(documentsData);
 
-        // 4. Update status to completed
+        // Update status to completed
         await db.update(documents)
             .set({
                 status: 'completed',
