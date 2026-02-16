@@ -24,45 +24,30 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Only PDF and TXT files are supported' }, { status: 400 });
         }
 
-        // Create document record
-        const [doc] = await db.insert(documents).values({
-            userId: session.user.id,
-            name: file.name,
-            status: 'pending',
-        }).returning();
-
-        // Trigger background processing
-        // We can't pass the File object directly to background queue if strictly separated, 
-        // but for this simple app, we might need to parse it here or save it temporarily.
-        // 
-        // Since we are serverless, we should process it *now* but return early if possible?
-        // OR better: Since we need the file content, we have to parse it here or upload to blob storage.
-        // 
-        // Let's stick to the plan: "Upload file -> Create document -> Trigger background".
-        // But for the background worker to read it, it needs access. 
-        // 
-        // Option A: Save to /tmp (unreliable on Vercel).
-        // Option B: Parse content immediately, then offload embedding generation.
-        // 
-        // Let's do Option B: Parse content here. It's fast enough.
-
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        // We will initiate the processing but not await it.
-        // However, we need to pass the *content* or *buffer* to the processor.
-        // Since our queue is in-memory for this simple implementation, we can pass it.
+        // Parse content upfront so we can store it for retry
+        let textContent = '';
+        if (file.type === 'application/pdf') {
+            const { PDFParse } = eval("require('pdf-parse')");
+            const parser = new PDFParse({ data: buffer, verbosity: 0 });
+            const result = await parser.getText();
+            textContent = result.text;
+            await parser.destroy();
+        } else {
+            textContent = buffer.toString('utf-8');
+        }
 
-        // Actually, queue.ts `addToQueue` function should probably take the buffer or text content.
-        // But wait, `addToQueue` in `lib/queue.ts` was just a stub.
-        // 
-        // Let's modify the queue to accept the file buffer/content.
-        // 
-        // For now, let's just implement the route and assume we have a `processDocument` function.
+        // Create document record with content stored
+        const [doc] = await db.insert(documents).values({
+            userId: session.user.id,
+            name: file.name,
+            content: textContent,
+            fileType: file.type,
+            status: 'pending',
+        }).returning();
 
-        // We'll call `processDocument` without awaiting, or use `waitUntil` (Next.js 15+ has unstable_after or we can just not await).
-
-        // Let's import the processor (we'll create it next).
         const { processDocument } = await import('@/lib/processor');
 
         // Fire and forget (with error logging)

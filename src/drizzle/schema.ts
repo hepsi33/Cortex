@@ -15,6 +15,8 @@ export const documents = pgTable('documents', {
     id: uuid('id').defaultRandom().primaryKey(),
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
     name: text('name').notNull(),
+    content: text('content'),
+    fileType: text('file_type'),
     status: text('status', { enum: ['pending', 'indexing', 'completed', 'failed'] }).default('pending').notNull(),
     chunkCount: integer('chunk_count').default(0).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
