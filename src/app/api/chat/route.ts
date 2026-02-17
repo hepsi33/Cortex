@@ -5,7 +5,7 @@ import { eq, desc, and, sql, inArray } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { Groq } from 'groq-sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { searchWeb } from '@/lib/firecrawl';
+import { searchWeb, deepResearch } from '@/lib/firecrawl';
 
 // Initialize Groq
 const groq = new Groq({
@@ -53,13 +53,38 @@ export async function POST(req: NextRequest) {
         });
 
         // 1. Generate embedding for query
-        const embeddingResult = await model.embedContent(message);
-        const queryVector = embeddingResult.embedding.values;
+        let queryVector;
+        try {
+            const embeddingResult = await model.embedContent(message);
+            queryVector = embeddingResult.embedding.values;
+        } catch (embeddingError) {
+            console.error('Gemini Embedding Error:', embeddingError);
+            throw new Error('Failed to generate embedding');
+        }
 
         // 2. Retrieval Strategy
         let relevantChunks: any[] = [];
         let sourceNames: Set<string> = new Set();
         let contextText = '';
+
+        // Strategy A: Workspace Search
+        if (workspaceId) {
+            // ... (keep existing workspace search logic)
+            // For brevity in this diff, assuming the workspace search logic is unchanged 
+            // but for safety in `replace_file_content` I should include strictly enough context or use `multi_replace` 
+            // if I were skipping lines. Since I can't skip lines easily without `multi_replace`, 
+            // I will assume the user wants me to be surgical.
+            // Actually, I'll just wrap the Firecrawl call since that's a likely candidate.
+        }
+
+        // ... (skipping workspace search detail in this description, but in code I must be precise)
+
+        // Let's use `multi_replace` or just target the specific blocks.
+        // I will target the Firecrawl block specifically.
+
+
+        // 2. Retrieval Strategy (Variables already declared above)
+        // (No redeclaration needed)
 
         // Strategy A: Workspace Search
         if (workspaceId) {
@@ -127,33 +152,64 @@ export async function POST(req: NextRequest) {
             contextText += docContext;
         }
 
-        // Strategy C: Web Search (Firecrawl)
+        // Strategy C: Web Search (Firecrawl Deep Research)
         if (shouldSearchWeb) {
-            console.log("Searching web...");
-            const webResults = await searchWeb(message);
-            if (webResults.length > 0) {
-                const webContext = webResults.map(r => `[Web Source: ${r.title}] (${r.url})\n${r.markdown.substring(0, 500)}...`).join('\n\n');
-                contextText += `\n\n=== WEB SOURCES ===\n${webContext}`;
+            console.log("Performing Deep Research...");
+            try {
+                const researchResult = await deepResearch(message);
+                if (researchResult && !researchResult.startsWith('No results')) {
+                    contextText += `\n\n=== DEEP RESEARCH SOURCES ===\n${researchResult}`;
+                }
+            } catch (firecrawlError) {
+                console.error('Firecrawl Error:', firecrawlError);
+                // Don't fail the whole chat if web search fails
+                contextText += `\n\n(Web search failed: ${firecrawlError instanceof Error ? firecrawlError.message : 'Unknown error'})`;
             }
         }
 
         if (!contextText) {
-            contextText = "No relevant information found in documents.";
+            contextText = shouldSearchWeb
+                ? "No relevant information found in documents or web sources."
+                : "No relevant information found in the uploaded documents. Please upload a document first, or enable 'Search Web' for external research.";
         }
 
 
-        // 4. Construct Prompt
-        const systemPrompt = `You are a helpful AI Knowledge Assistant.
-Answer the user's question based strictly on the provided context.
+        // 4. Construct Prompt (adapts based on mode)
+        let systemPrompt: string;
+
+        if (shouldSearchWeb) {
+            // DEEP RESEARCH MODE: Synthesize documents + web sources
+            systemPrompt = `You are a helpful AI Knowledge Assistant.
+Your goal is to provide a comprehensive and unified answer to the user's question by synthesizing information from the provided context.
 
 Context:
 ${contextText}
 
 Instructions:
-- If the answer is found in a Document, cite it as [Document Name].
-- If the answer is found in a Web Source, cite it as [Source Title](URL).
-- If the answer is not in the context, say "No relevant data found." and do not make up an answer.
+- **Synthesize & Integrate**: Seamlessly combine insights from the **Documents** (your primary knowledge base) with the **Web Sources** (external context).
+- **Conflict Resolution**: If Web Sources contradict Documents, note the discrepancy but prioritize the user's specific Documents for internal specifics, and Web Sources for general/recent facts.
+- **Deep Research**: Use Web Sources to explain, expand, or verify information found in Documents.
+- **Citations**: 
+    - Cite Documents as [Document Name].
+    - Cite Web Sources as [Source Title](URL).
+- **Unknowns**: If the answer is not in the context, say "No relevant data found." and do not make up an answer.
 `;
+        } else {
+            // DOCUMENT-ONLY MODE: Answer strictly from uploaded documents
+            systemPrompt = `You are a helpful AI Knowledge Assistant that answers questions based ONLY on the provided documents.
+
+Context from Documents:
+${contextText}
+
+Instructions:
+- **Answer ONLY from the provided documents.** Do NOT use any external knowledge or make assumptions beyond what is in the documents.
+- **Citations**: Reference the source document as [Document Name] when citing information.
+- **Direct & Concise**: Be clear and to the point, drawing only from the document content above.
+- **Unknowns**: If the answer is NOT found in the provided documents, clearly state: "This information is not available in the uploaded documents." Do NOT guess or fabricate an answer.
+- **No Web Content**: Do not reference any web sources or external information. You only have access to the user's uploaded documents.
+`;
+        }
+
 
         // Fetch history
         const history = await db.query.messages.findMany({
@@ -182,22 +238,27 @@ Instructions:
 
         const stream = new ReadableStream({
             async start(controller) {
-                for await (const chunk of completion) {
-                    const content = chunk.choices[0]?.delta?.content || '';
-                    if (content) {
-                        fullResponse += content;
-                        controller.enqueue(encoder.encode(content));
+                try {
+                    for await (const chunk of completion) {
+                        const content = chunk.choices[0]?.delta?.content || '';
+                        if (content) {
+                            fullResponse += content;
+                            controller.enqueue(encoder.encode(content));
+                        }
                     }
+
+                    // Save assistant message to DB
+                    await db.insert(messages).values({
+                        chatId: currentChatId,
+                        role: 'assistant',
+                        content: fullResponse || "(No response generated)",
+                    });
+
+                    controller.close();
+                } catch (streamError) {
+                    console.error('Stream processing error:', streamError);
+                    controller.error(streamError);
                 }
-
-                // Save assistant message to DB
-                await db.insert(messages).values({
-                    chatId: currentChatId,
-                    role: 'assistant',
-                    content: fullResponse,
-                });
-
-                controller.close();
             }
         });
 
@@ -209,7 +270,11 @@ Instructions:
         });
 
     } catch (error) {
-        console.error('Chat error:', error);
+        console.error('Chat error details:', error);
+        if (error instanceof Error) {
+            console.error('Chat error message:', error.message);
+            console.error('Chat error stack:', error.stack);
+        }
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

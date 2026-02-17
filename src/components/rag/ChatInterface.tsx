@@ -62,7 +62,10 @@ export function ChatInterface({ workspaceId }: ChatInterfaceProps) {
                 }),
             });
 
-            if (!res.ok) throw new Error('Failed to send message');
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || `Failed to send message: ${res.statusText}`);
+            }
 
             const newChatId = res.headers.get('X-Chat-Id');
             if (newChatId && !chatId) {
@@ -98,7 +101,7 @@ export function ChatInterface({ workspaceId }: ChatInterfaceProps) {
             setMessages((prev) => [...prev, {
                 id: Date.now().toString(),
                 role: 'assistant',
-                content: 'Sorry, I encountered an error. Please try again.',
+                content: err instanceof Error ? `Error: ${err.message}` : 'Sorry, I encountered an error. Please try again.',
             }]);
         } finally {
             setLoading(false);

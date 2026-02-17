@@ -9,14 +9,16 @@ async function run() {
         return;
     }
 
-    console.log(`Enabling vector extension on: ${new URL(url).hostname}`);
+    console.log(`Testing connection to: ${new URL(url).hostname}`);
 
     try {
         const sql = neon(url);
-        await sql`CREATE EXTENSION IF NOT EXISTS vector`;
-        console.log("SUCCESS: Vector extension enabled!");
+        const result = await sql`SELECT version()`;
+        console.log("SUCCESS: Connected to database!");
+        console.log("Version:", result[0].version);
     } catch (e: any) {
         console.error("FAILED:", e.message);
+        if (e.cause) console.error("Cause:", e.cause);
     }
 }
 

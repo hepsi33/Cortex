@@ -93,8 +93,12 @@ export function DocumentManager({ workspaceId }: DocumentManagerProps) {
         try {
             const res = await fetch(`/api/documents/${id}/retry`, { method: 'POST' });
             if (!res.ok) {
-                // Warn user about content requirement (as per my implementation note)
-                alert('Retry might fail if content was not stored. Please re-upload if it persists.');
+                const data = await res.json().catch(() => ({}));
+                if (res.status === 429) {
+                    alert('Gemini Vision is still rate-limited. Please wait a few minutes and try again.');
+                } else {
+                    alert(data.error || 'Retry failed. Please re-upload if it persists.');
+                }
             }
             fetchDocuments();
         } catch (err) {
@@ -110,7 +114,8 @@ export function DocumentManager({ workspaceId }: DocumentManagerProps) {
             </h2>
 
             {/* Upload Area */}
-            <div className="mb-6">
+            <div className="mb-6 space-y-4">
+                {/* File Upload */}
                 <label className={cn(
                     "flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-[#0f172a] hover:bg-[#1f2937] transition-colors",
                     uploading ? "opacity-50 pointer-events-none" : "border-gray-700 hover:border-gray-600"
@@ -121,16 +126,61 @@ export function DocumentManager({ workspaceId }: DocumentManagerProps) {
                         ) : (
                             <>
                                 <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                                <p className="text-sm text-gray-400">
-                                    <span className="font-semibold text-white">Click to upload</span> PDF or TXT
+                                <p className="text-sm text-gray-400 text-center px-4">
+                                    <span className="font-semibold text-white">Click to upload</span><br />
+                                    <span className="text-xs">PDF, DOCX, PPTX, TXT, MD, Images</span>
                                 </p>
                             </>
                         )}
                     </div>
-                    <input type="file" className="hidden" accept=".pdf,.txt" onChange={handleUpload} disabled={uploading} />
+                    <input
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.txt,.md,.csv,.docx,.pptx,.jpg,.jpeg,.png,.webp"
+                        onChange={handleUpload}
+                        disabled={uploading}
+                    />
                 </label>
+
+                {/* URL Input */}
+                <div className="flex gap-2">
+                    <input
+                        type="url"
+                        placeholder="Or enter a URL to ingest..."
+                        className="flex-1 bg-[#0f172a] border border-gray-700 text-white placeholder:text-gray-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/30 transition-all"
+                        onKeyDown={async (e) => {
+                            if (e.key === 'Enter') {
+                                const inputEl = e.currentTarget; // Capture ref BEFORE await
+                                const url = inputEl.value;
+                                if (!url || uploading) return;
+
+                                setUploading(true);
+                                setError(null);
+                                try {
+                                    const res = await fetch('/api/ingest/url', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ url, workspaceId })
+                                    });
+                                    if (!res.ok) {
+                                        const data = await res.json();
+                                        throw new Error(data.error || 'Failed to ingest URL');
+                                    }
+                                    inputEl.value = '';
+                                    fetchDocuments();
+                                } catch (err: any) {
+                                    setError(err.message);
+                                } finally {
+                                    setUploading(false);
+                                }
+                            }
+                        }}
+                        disabled={uploading}
+                    />
+                </div>
+
                 {error && (
-                    <div className="mt-2 text-xs text-red-400 flex items-center gap-1">
+                    <div className="text-xs text-red-400 flex items-center gap-1">
                         <AlertCircle className="w-3 h-3" />
                         {error}
                     </div>
