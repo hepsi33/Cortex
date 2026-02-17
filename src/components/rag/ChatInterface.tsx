@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, Loader2, FileText } from 'lucide-react';
+import { Send, Bot, Loader2, FileText, Globe } from 'lucide-react';
 
 interface Message {
     id: string;
@@ -10,16 +10,24 @@ interface Message {
 }
 
 interface ChatInterfaceProps {
-    documentId: string;
+    workspaceId: string | null;
 }
 
-export function ChatInterface({ documentId }: ChatInterfaceProps) {
+export function ChatInterface({ workspaceId }: ChatInterfaceProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [chatId, setChatId] = useState<string | null>(null);
+    const [searchWeb, setSearchWeb] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [activeCitation, setActiveCitation] = useState<number | null>(null);
+
+    // Reset chat when workspace changes
+    useEffect(() => {
+        setMessages([]);
+        setChatId(null);
+        setInput('');
+    }, [workspaceId]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -30,7 +38,7 @@ export function ChatInterface({ documentId }: ChatInterfaceProps) {
     }, [messages]);
 
     const handleSend = async () => {
-        if (!input.trim() || loading) return;
+        if (!input.trim() || loading || !workspaceId) return;
 
         const userMsg: Message = {
             id: Date.now().toString(),
@@ -49,7 +57,8 @@ export function ChatInterface({ documentId }: ChatInterfaceProps) {
                 body: JSON.stringify({
                     message: userMsg.content,
                     chatId: chatId,
-                    documentId: documentId,
+                    workspaceId: workspaceId,
+                    searchWeb: searchWeb
                 }),
             });
 
@@ -117,11 +126,11 @@ export function ChatInterface({ documentId }: ChatInterfaceProps) {
     };
 
     return (
-        <div className="flex flex-col h-full bg-white relative">
+        <div className="flex flex-col h-full bg-[#0b0f19] relative">
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 pb-24">
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 pb-24 custom-scrollbar">
                 {messages.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                    <div className="flex flex-col items-center justify-center h-full text-gray-500">
                         <Bot className="w-12 h-12 mb-3 opacity-30" />
                         <p className="text-sm">Ask a question about this document</p>
                     </div>
@@ -134,8 +143,8 @@ export function ChatInterface({ documentId }: ChatInterfaceProps) {
                     >
                         <div
                             className={`max-w-[80%] rounded-xl px-4 py-3 text-sm leading-relaxed ${msg.role === 'user'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-slate-100 text-slate-800 border border-slate-200'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-[#1f2937] text-gray-200 border border-gray-800'
                                 }`}
                         >
                             {msg.role === 'user' ? (
@@ -149,7 +158,7 @@ export function ChatInterface({ documentId }: ChatInterfaceProps) {
 
                 {loading && (
                     <div className="flex justify-start">
-                        <div className="bg-slate-100 rounded-xl px-4 py-3 border border-slate-200">
+                        <div className="bg-[#1f2937] rounded-xl px-4 py-3 border border-gray-800">
                             <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
                         </div>
                     </div>
@@ -158,41 +167,59 @@ export function ChatInterface({ documentId }: ChatInterfaceProps) {
             </div>
 
             {/* Input Area */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200">
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-[#0b0f19] border-t border-gray-800">
                 <form
                     onSubmit={(e) => {
                         e.preventDefault();
                         handleSend();
                     }}
-                    className="flex gap-2 max-w-3xl mx-auto"
+                    className="flex flex-col gap-2 max-w-3xl mx-auto"
                 >
-                    <input
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder="Type your question..."
-                        className="flex-1 bg-white border border-slate-300 text-slate-800 placeholder:text-slate-400 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
-                        disabled={loading}
-                    />
-                    <button
-                        type="submit"
-                        disabled={loading || !input.trim()}
-                        className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-lg px-4 py-2.5 transition-colors"
-                    >
-                        <Send className="w-4 h-4" />
-                    </button>
+                    <div className="flex gap-2">
+                        <input
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            placeholder={workspaceId ? "Ask a question..." : "Select a workspace to chat"}
+                            className="flex-1 bg-[#0f172a] border border-gray-700 text-white placeholder:text-gray-500 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={loading || !workspaceId}
+                        />
+                        <button
+                            type="submit"
+                            disabled={loading || !input.trim() || !workspaceId}
+                            className="bg-blue-600 hover:bg-blue-700 disabled:bg-[#1f2937] disabled:text-gray-500 text-white rounded-lg px-4 py-2.5 transition-colors"
+                        >
+                            <Send className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 px-1">
+                        <label className={`flex items-center gap-2 text-xs cursor-pointer ${searchWeb ? 'text-blue-500 font-medium' : 'text-gray-400 hover:text-gray-300'}`}>
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${searchWeb ? 'bg-blue-600 border-blue-600' : 'bg-[#1f2937] border-gray-600'}`}>
+                                {searchWeb && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                            </div>
+                            <input
+                                type="checkbox"
+                                className="hidden"
+                                checked={searchWeb}
+                                onChange={(e) => setSearchWeb(e.target.checked)}
+                            />
+                            <Globe className="w-3 h-3" />
+                            Search Web (Firecrawl)
+                        </label>
+                    </div>
                 </form>
             </div>
 
             {/* Citation Popup */}
             {activeCitation && (
-                <div className="absolute bottom-24 right-4 w-72 bg-white border border-slate-200 shadow-lg p-4 rounded-xl text-sm z-10">
+                <div className="absolute bottom-24 right-4 w-72 bg-[#1f2937] border border-gray-800 shadow-lg p-4 rounded-xl text-sm z-10 text-gray-200">
                     <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-semibold text-slate-800 flex items-center gap-1.5">
+                        <h4 className="font-semibold text-white flex items-center gap-1.5">
                             <FileText className="w-3.5 h-3.5 text-blue-500" /> Source [{activeCitation}]
                         </h4>
-                        <button onClick={() => setActiveCitation(null)} className="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+                        <button onClick={() => setActiveCitation(null)} className="text-gray-400 hover:text-white text-lg">&times;</button>
                     </div>
-                    <p className="text-slate-500 text-xs italic">
+                    <p className="text-gray-400 text-xs italic">
                         Source content from the document chunk used to generate this answer.
                     </p>
                 </div>

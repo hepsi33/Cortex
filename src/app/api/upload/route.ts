@@ -12,6 +12,7 @@ export async function POST(req: NextRequest) {
 
         const formData = await req.formData();
         const file = formData.get('file') as File;
+        const workspaceId = formData.get('workspaceId') as string | null;
 
         if (!file) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
         // Create document record with content stored
         const [doc] = await db.insert(documents).values({
             userId: session.user.id,
+            workspaceId: workspaceId || null,
             name: file.name,
             content: textContent,
             fileType: file.type,

@@ -11,14 +11,22 @@ interface Document {
     createdAt: string;
 }
 
-export function DocumentManager() {
+interface DocumentManagerProps {
+    workspaceId: string | null;
+}
+
+export function DocumentManager({ workspaceId }: DocumentManagerProps) {
     const [documents, setDocuments] = useState<Document[]>([]);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const fetchDocuments = async () => {
+        if (!workspaceId) {
+            setDocuments([]);
+            return;
+        }
         try {
-            const res = await fetch('/api/documents');
+            const res = await fetch(`/api/documents?workspaceId=${workspaceId}`);
             const data = await res.json();
             if (Array.isArray(data)) {
                 setDocuments(data);
@@ -33,7 +41,7 @@ export function DocumentManager() {
         // Poll for status updates every 5 seconds
         const interval = setInterval(fetchDocuments, 5000);
         return () => clearInterval(interval);
-    }, []);
+    }, [workspaceId]);
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -44,6 +52,9 @@ export function DocumentManager() {
 
         const formData = new FormData();
         formData.append('file', file);
+        if (workspaceId) {
+            formData.append('workspaceId', workspaceId);
+        }
 
         try {
             const res = await fetch('/api/upload', {
@@ -92,26 +103,26 @@ export function DocumentManager() {
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-50 border-r border-slate-200 w-80 p-4">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <FileText className="w-5 h-5" />
+        <div className="flex flex-col h-full bg-[#111827] w-full p-4">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
+                <FileText className="w-5 h-5 text-gray-400" />
                 Documents
             </h2>
 
             {/* Upload Area */}
             <div className="mb-6">
                 <label className={cn(
-                    "flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-white hover:bg-slate-50 transition-colors",
-                    uploading ? "opacity-50 pointer-events-none" : "border-slate-300 hover:border-slate-400"
+                    "flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-[#0f172a] hover:bg-[#1f2937] transition-colors",
+                    uploading ? "opacity-50 pointer-events-none" : "border-gray-700 hover:border-gray-600"
                 )}>
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                         {uploading ? (
-                            <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
+                            <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
                         ) : (
                             <>
-                                <Upload className="w-8 h-8 mb-2 text-slate-400" />
-                                <p className="text-sm text-slate-500">
-                                    <span className="font-semibold">Click to upload</span> PDF or TXT
+                                <Upload className="w-8 h-8 mb-2 text-gray-500" />
+                                <p className="text-sm text-gray-400">
+                                    <span className="font-semibold text-white">Click to upload</span> PDF or TXT
                                 </p>
                             </>
                         )}
@@ -119,7 +130,7 @@ export function DocumentManager() {
                     <input type="file" className="hidden" accept=".pdf,.txt" onChange={handleUpload} disabled={uploading} />
                 </label>
                 {error && (
-                    <div className="mt-2 text-xs text-red-500 flex items-center gap-1">
+                    <div className="mt-2 text-xs text-red-400 flex items-center gap-1">
                         <AlertCircle className="w-3 h-3" />
                         {error}
                     </div>
@@ -127,23 +138,23 @@ export function DocumentManager() {
             </div>
 
             {/* Document List */}
-            <div className="flex-1 overflow-y-auto space-y-2">
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                 {documents.length === 0 ? (
-                    <div className="text-center text-slate-400 text-sm mt-10">
+                    <div className="text-center text-gray-500 text-sm mt-10">
                         No documents yet.
                     </div>
                 ) : (
                     documents.map((doc) => (
-                        <div key={doc.id} className="p-3 bg-white rounded-lg border border-slate-200 shadow-sm group">
+                        <div key={doc.id} className="p-3 bg-[#1f2937] rounded-lg border border-gray-800 shadow-sm group hover:border-gray-700 transition-colors">
                             <div className="flex justify-between items-start mb-1">
-                                <h3 className="text-sm font-medium text-slate-900 truncate w-40" title={doc.name}>
+                                <h3 className="text-sm font-medium text-gray-200 truncate w-40" title={doc.name}>
                                     {doc.name}
                                 </h3>
-                                <div className="flex gap-1">
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     {doc.status === 'failed' && (
                                         <button
                                             onClick={() => handleRetry(doc.id)}
-                                            className="text-slate-400 hover:text-blue-500 p-1"
+                                            className="text-gray-400 hover:text-blue-400 p-1"
                                             title="Retry Indexing"
                                         >
                                             <RefreshCw className="w-3 h-3" />
@@ -151,7 +162,7 @@ export function DocumentManager() {
                                     )}
                                     <button
                                         onClick={() => handleDelete(doc.id)}
-                                        className="text-slate-400 hover:text-red-500 p-1"
+                                        className="text-gray-400 hover:text-red-400 p-1"
                                         title="Delete"
                                     >
                                         <Trash2 className="w-3 h-3" />
@@ -160,7 +171,7 @@ export function DocumentManager() {
                             </div>
                             <div className="flex items-center gap-2">
                                 <StatusBadge status={doc.status} />
-                                <span className="text-xs text-slate-400 ml-auto">
+                                <span className="text-xs text-gray-500 ml-auto">
                                     {new Date(doc.createdAt).toLocaleDateString()}
                                 </span>
                             </div>
@@ -175,14 +186,14 @@ export function DocumentManager() {
 function StatusBadge({ status }: { status: string }) {
     switch (status) {
         case 'pending':
-            return <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">Pending</span>;
+            return <span className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full border border-gray-700">Pending</span>;
         case 'indexing':
-            return <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Indexing</span>;
+            return <span className="text-xs bg-blue-900/30 text-blue-400 px-2 py-0.5 rounded-full flex items-center gap-1 border border-blue-900/50"><Loader2 className="w-3 h-3 animate-spin" /> Indexing</span>;
         case 'completed':
-            return <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full">Ready</span>;
+            return <span className="text-xs bg-green-900/30 text-green-400 px-2 py-0.5 rounded-full border border-green-900/50">Ready</span>;
         case 'failed':
-            return <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full">Failed</span>;
+            return <span className="text-xs bg-red-900/30 text-red-400 px-2 py-0.5 rounded-full border border-red-900/50">Failed</span>;
         default:
-            return <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{status}</span>;
+            return <span className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full border border-gray-700">{status}</span>;
     }
 }

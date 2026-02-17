@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, Sparkles, Youtube, FileText, ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +15,7 @@ export default function AINotesPage() {
     const [notes, setNotes] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const router = useRouter();
 
     const handleGenerate = async () => {
         if (!url) return;
@@ -48,10 +49,13 @@ export default function AINotesPage() {
             <div className="max-w-4xl mx-auto space-y-8">
                 {/* Header */}
                 <div className="flex items-center gap-4">
-                    <Button asChild variant="ghost" size="icon" className="text-gray-400 hover:text-white">
-                        <Link href="/dashboard">
-                            <ArrowLeft className="w-6 h-6" />
-                        </Link>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-gray-400 hover:text-white"
+                        onClick={() => router.back()}
+                    >
+                        <ArrowLeft className="w-6 h-6" />
                     </Button>
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">
