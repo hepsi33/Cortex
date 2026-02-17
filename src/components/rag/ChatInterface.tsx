@@ -131,7 +131,7 @@ export function ChatInterface({ workspaceId }: ChatInterfaceProps) {
     return (
         <div className="flex flex-col h-full bg-[#0b0f19] relative">
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 pb-24 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3 sm:space-y-4 pb-28 sm:pb-24 custom-scrollbar">
                 {messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full text-gray-500">
                         <Bot className="w-12 h-12 mb-3 opacity-30" />
@@ -145,7 +145,7 @@ export function ChatInterface({ workspaceId }: ChatInterfaceProps) {
                         className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                         <div
-                            className={`max-w-[80%] rounded-xl px-4 py-3 text-sm leading-relaxed ${msg.role === 'user'
+                            className={`max-w-[90%] sm:max-w-[80%] rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm leading-relaxed ${msg.role === 'user'
                                 ? 'bg-blue-600 text-white'
                                 : 'bg-[#1f2937] text-gray-200 border border-gray-800'
                                 }`}
@@ -170,7 +170,7 @@ export function ChatInterface({ workspaceId }: ChatInterfaceProps) {
             </div>
 
             {/* Input Area */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-[#0b0f19] border-t border-gray-800">
+            <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 bg-[#0b0f19] border-t border-gray-800">
                 <form
                     onSubmit={(e) => {
                         e.preventDefault();
@@ -183,7 +183,7 @@ export function ChatInterface({ workspaceId }: ChatInterfaceProps) {
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             placeholder={workspaceId ? "Ask a question..." : "Select a workspace to chat"}
-                            className="flex-1 bg-[#0f172a] border border-gray-700 text-white placeholder:text-gray-500 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-1 bg-[#0f172a] border border-gray-700 text-white placeholder:text-gray-500 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={loading || !workspaceId}
                         />
                         <button
@@ -215,7 +215,7 @@ export function ChatInterface({ workspaceId }: ChatInterfaceProps) {
 
             {/* Citation Popup */}
             {activeCitation && (
-                <div className="absolute bottom-24 right-4 w-72 bg-[#1f2937] border border-gray-800 shadow-lg p-4 rounded-xl text-sm z-10 text-gray-200">
+                <div className="absolute bottom-28 sm:bottom-24 left-3 right-3 sm:left-auto sm:right-4 sm:w-72 bg-[#1f2937] border border-gray-800 shadow-lg p-3 sm:p-4 rounded-xl text-sm z-10 text-gray-200">
                     <div className="flex justify-between items-center mb-2">
                         <h4 className="font-semibold text-white flex items-center gap-1.5">
                             <FileText className="w-3.5 h-3.5 text-blue-500" /> Source [{activeCitation}]

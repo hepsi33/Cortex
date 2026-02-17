@@ -107,17 +107,17 @@ export function DocumentManager({ workspaceId }: DocumentManagerProps) {
     };
 
     return (
-        <div className="flex flex-col h-full bg-[#111827] w-full p-4">
+        <div className="flex flex-col h-full bg-[#111827] w-full p-3 sm:p-4">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
                 <FileText className="w-5 h-5 text-gray-400" />
                 Documents
             </h2>
 
             {/* Upload Area */}
-            <div className="mb-6 space-y-4">
+            <div className="mb-4 sm:mb-6 space-y-3 sm:space-y-4">
                 {/* File Upload */}
                 <label className={cn(
-                    "flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-[#0f172a] hover:bg-[#1f2937] transition-colors",
+                    "flex flex-col items-center justify-center w-full h-24 sm:h-32 border-2 border-dashed rounded-lg cursor-pointer bg-[#0f172a] hover:bg-[#1f2937] transition-colors",
                     uploading ? "opacity-50 pointer-events-none" : "border-gray-700 hover:border-gray-600"
                 )}>
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
@@ -125,10 +125,10 @@ export function DocumentManager({ workspaceId }: DocumentManagerProps) {
                             <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
                         ) : (
                             <>
-                                <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                                <p className="text-sm text-gray-400 text-center px-4">
+                                <Upload className="w-6 h-6 sm:w-8 sm:h-8 mb-1 sm:mb-2 text-gray-500" />
+                                <p className="text-xs sm:text-sm text-gray-400 text-center px-4">
                                     <span className="font-semibold text-white">Click to upload</span><br />
-                                    <span className="text-xs">PDF, DOCX, PPTX, TXT, MD, Images</span>
+                                    <span className="text-[10px] sm:text-xs">PDF, DOCX, PPTX, TXT, MD, Images</span>
                                 </p>
                             </>
                         )}

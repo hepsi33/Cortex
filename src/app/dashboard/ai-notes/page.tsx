@@ -45,40 +45,41 @@ export default function AINotesPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] p-8">
-            <div className="max-w-4xl mx-auto space-y-8">
+        <div className="min-h-screen bg-[#0a0a0a] p-4 sm:p-6 md:p-8">
+            <div className="max-w-4xl mx-auto space-y-6 md:space-y-8">
                 {/* Header */}
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 md:gap-4">
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="text-gray-400 hover:text-white"
+                        className="text-gray-400 hover:text-white shrink-0"
                         onClick={() => router.back()}
                     >
-                        <ArrowLeft className="w-6 h-6" />
+                        <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
                     </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                            <Sparkles className="w-8 h-8 text-purple-400" />
-                            AI Study Notes
+                    <div className="min-w-0">
+                        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white flex items-center gap-2 md:gap-3">
+                            <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-purple-400 shrink-0" />
+                            <span className="truncate">AI Study Notes</span>
                         </h1>
-                        <p className="text-gray-400">Transform YouTube videos into comprehensive study guides</p>
+                        <p className="text-gray-400 text-xs sm:text-sm md:text-base mt-0.5">Transform YouTube videos into comprehensive study guides</p>
                     </div>
                 </div>
 
                 {/* Input Section */}
                 <Card className="glass border-white/10">
-                    <CardHeader>
-                        <CardTitle className="text-white">Video Source</CardTitle>
-                        <CardDescription className="text-gray-400">Paste a YouTube video URL below</CardDescription>
+                    <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+                        <CardTitle className="text-white text-base sm:text-lg">Video Source</CardTitle>
+                        <CardDescription className="text-gray-400 text-xs sm:text-sm">Paste a YouTube video URL below</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex gap-4">
+                    <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6 space-y-3 sm:space-y-4">
+                        {/* Stack vertically on mobile, row on desktop */}
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                             <div className="relative flex-1">
                                 <Youtube className="absolute left-3 top-3 w-5 h-5 text-gray-500" />
                                 <Input
                                     placeholder="https://www.youtube.com/watch?v=..."
-                                    className="pl-10 bg-black/20 border-white/10 text-white placeholder:text-gray-600 focus-visible:ring-purple-500"
+                                    className="pl-10 bg-black/20 border-white/10 text-white placeholder:text-gray-600 focus-visible:ring-purple-500 text-sm sm:text-base"
                                     value={url}
                                     onChange={(e) => setUrl(e.target.value)}
                                 />
@@ -86,7 +87,7 @@ export default function AINotesPage() {
                             <Button
                                 onClick={handleGenerate}
                                 disabled={loading || !url}
-                                className="bg-purple-600 hover:bg-purple-700 text-white min-w-[120px]"
+                                className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto sm:min-w-[120px]"
                             >
                                 {loading ? (
                                     <>
@@ -102,7 +103,7 @@ export default function AINotesPage() {
                             </Button>
                         </div>
                         {error && (
-                            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+                            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs sm:text-sm">
                                 {error}
                             </div>
                         )}
@@ -112,21 +113,26 @@ export default function AINotesPage() {
                 {/* Results Section */}
                 {notes && (
                     <Card className="glass border-white/10 animate-fade-in">
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
+                        <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-green-500/20 rounded-lg">
+                                    <div className="p-2 bg-green-500/20 rounded-lg shrink-0">
                                         <FileText className="w-5 h-5 text-green-400" />
                                     </div>
-                                    <CardTitle className="text-white">Generated Notes</CardTitle>
+                                    <CardTitle className="text-white text-base sm:text-lg">Generated Notes</CardTitle>
                                 </div>
-                                <Button variant="outline" size="sm" className="border-white/20 text-gray-400 hover:text-white hover:bg-white/10" onClick={() => navigator.clipboard.writeText(notes)}>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-white/20 text-gray-400 hover:text-white hover:bg-white/10 w-full sm:w-auto"
+                                    onClick={() => navigator.clipboard.writeText(notes)}
+                                >
                                     Copy to Clipboard
                                 </Button>
                             </div>
                         </CardHeader>
-                        <CardContent>
-                            <div className="prose prose-invert max-w-none prose-headings:text-purple-300 prose-a:text-blue-400 prose-strong:text-white text-gray-300 font-sans leading-relaxed">
+                        <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+                            <div className="prose prose-invert max-w-none prose-headings:text-purple-300 prose-a:text-blue-400 prose-strong:text-white text-gray-300 font-sans leading-relaxed prose-sm sm:prose-base">
                                 <ReactMarkdown>{notes}</ReactMarkdown>
                             </div>
                         </CardContent>
