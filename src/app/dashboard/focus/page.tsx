@@ -374,64 +374,63 @@ export default function FocusPage() {
             {/* Central Content */}
             <div className="relative z-10 w-full flex flex-col items-center justify-center space-y-2">
                 <motion.div 
-                    key={timeLeft}
-                    initial={{ opacity: 0.8 }}
-                    animate={{ opacity: 1 }}
-                    className="text-[12rem] md:text-[18rem] font-black text-white leading-none tracking-tighter tabular-nums drop-shadow-[0_0_80px_rgba(225,0,255,0.15)] italic"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-7xl sm:text-8xl md:text-[12rem] lg:text-[18rem] font-black text-white leading-none tracking-tighter tabular-nums drop-shadow-[0_0_80px_rgba(225,0,255,0.15)] italic"
                 >
                     {formatTime(timeLeft)}
                 </motion.div>
 
-                <div className="flex items-center gap-10 -translate-y-6">
+                <div className="flex items-center gap-6 md:gap-10 -translate-y-4 md:-translate-y-6">
                     <button
                         onClick={toggleTimer}
                         className={cn(
-                            "w-24 h-24 rounded-[2.5rem] flex items-center justify-center transition-all duration-700 border-2 cursor-target",
+                            "w-16 h-16 md:w-24 md:h-24 rounded-2xl md:rounded-[2.5rem] flex items-center justify-center transition-all duration-700 border-2 cursor-target",
                             isActive 
                                 ? "bg-white/5 border-white/10 text-white/20 hover:text-white hover:bg-white/10" 
                                 : "bg-[#e100ff] text-white border-[#e100ff] scale-105 shadow-[0_0_50px_rgba(225,0,255,0.25)]"
                         )}
                     >
-                        {isActive ? <Pause className="w-10 h-10 fill-current" /> : <Play className="w-10 h-10 fill-current translate-x-1" />}
+                        {isActive ? <Pause className="w-6 h-6 md:w-10 md:h-10 fill-current" /> : <Play className="w-6 h-6 md:w-10 md:h-10 fill-current translate-x-1" />}
                     </button>
                     <button
                         onClick={resetTimer}
-                        className="w-20 h-20 rounded-[2.2rem] bg-white/5 border border-white/10 text-white/20 hover:text-rose-500 hover:border-rose-500/40 transition-all flex items-center justify-center cursor-target"
+                        className="w-14 h-14 md:w-20 md:h-20 rounded-2xl md:rounded-[2.2rem] bg-white/5 border border-white/10 text-white/20 hover:text-rose-500 hover:border-rose-500/40 transition-all flex items-center justify-center cursor-target"
                     >
-                        <RotateCcw className="w-8 h-8" />
+                        <RotateCcw className="w-6 h-6 md:w-8 md:h-8" />
                     </button>
                 </div>
             </div>
 
             {/* Bottom Bar */}
-            <div className="fixed bottom-10 left-1/2 -translate-x-1/2 w-full max-w-xl px-8 flex justify-center gap-6 z-20">
-                <div className="flex bg-[#0a0a0c]/60 backdrop-blur-3xl border border-white/5 p-2.5 rounded-[2.5rem] shadow-4xl items-center">
-                    <div className="flex gap-2 pr-6 border-r border-white/10">
+            <div className="fixed bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 w-[90%] md:w-full max-w-xl px-4 md:px-8 flex justify-center gap-4 md:gap-6 z-20">
+                <div className="flex flex-col md:flex-row bg-[#0a0a0c]/60 backdrop-blur-3xl border border-white/5 p-2 md:p-2.5 rounded-3xl md:rounded-[2.5rem] shadow-4xl items-center w-full md:w-auto">
+                    <div className="flex gap-2 p-2 md:pr-6 md:border-r border-white/10">
                         {wallpapers.map((wp) => (
                             <button
                                 key={wp.id}
                                 onClick={() => setCurrentWallpaper(wp)}
                                 className={cn(
-                                    "p-4 rounded-2xl transition-all duration-500 border cursor-target",
+                                    "p-3 md:p-4 rounded-xl md:rounded-2xl transition-all duration-500 border cursor-target",
                                     currentWallpaper.id === wp.id 
                                         ? "bg-[#e100ff] text-white border-[#e100ff] scale-105 shadow-xl" 
                                         : "bg-white/5 text-white/20 border-white/5 hover:bg-white/10 hover:text-white"
                                 )}
                             >
-                                <wp.icon className="w-5 h-5" />
+                                <wp.icon className="w-4 h-4 md:w-5 md:h-5" />
                             </button>
                         ))}
                     </div>
 
-                    <div className="relative pl-6">
+                    <div className="relative p-2 md:pl-6 w-full md:w-auto">
                         <button 
                             onClick={() => setShowSounds(!showSounds)}
                             className={cn(
-                                "h-12 px-10 rounded-2xl border transition-all text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-4 cursor-target",
+                                "h-10 md:h-12 w-full md:w-auto px-6 md:px-10 rounded-xl md:rounded-2xl border transition-all text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] flex items-center justify-center gap-4 cursor-target",
                                 showSounds ? "bg-white text-black border-white" : "bg-white/5 border-white/5 text-white/40 hover:text-white"
                             )}
                         >
-                            <LayoutGrid className="w-4 h-4" />
+                            <LayoutGrid className="w-3 h-3 md:w-4 md:h-4" />
                             Ambient Mix
                         </button>
 
