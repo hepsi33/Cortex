@@ -42,10 +42,10 @@ export async function POST(req: NextRequest) {
             status: 'pending',
         }).returning();
 
-        const { processDocument } = await import('@/lib/processor');
+        const { processDocumentChunks } = await import('@/lib/processor');
 
         // Fire and forget processing
-        processDocument(doc.id, content).catch(err => console.error('Background processing failed:', err));
+        processDocumentChunks(doc.id, content).catch(err => console.error('Background processing failed:', err));
 
         return NextResponse.json({ id: doc.id, status: 'pending' }, { status: 202 });
 

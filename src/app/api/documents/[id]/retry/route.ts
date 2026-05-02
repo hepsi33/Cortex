@@ -73,8 +73,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                         .where(eq(documents.id, id));
 
                     // Now process the real content for embeddings
-                    const { processDocument } = await import('@/lib/processor');
-                    processDocument(doc.id, newContent).catch(err =>
+                    const { processDocumentChunks } = await import('@/lib/processor');
+                    processDocumentChunks(doc.id, newContent).catch(err =>
                         console.error('Retry embedding failed:', err)
                     );
 
@@ -93,9 +93,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         }
 
         // Standard retry: Reprocess using stored text content
-        const { processDocument } = await import('@/lib/processor');
+        const { processDocumentChunks } = await import('@/lib/processor');
 
-        processDocument(doc.id, doc.content).catch(err =>
+        processDocumentChunks(doc.id, doc.content).catch(err =>
             console.error('Retry processing failed:', err)
         );
 

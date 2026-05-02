@@ -185,7 +185,7 @@ export async function processUrl(documentId: string, url: string) {
  *   Old (1-at-a-time, 4.5s delay): 300 chunks = 22 minutes
  *   New (batch 100, 5s delay):      300 chunks = 15 seconds
  */
-async function processDocumentChunks(documentId: string, textContent: string) {
+export async function processDocumentChunks(documentId: string, textContent: string) {
     const startTime = Date.now();
     console.log(`[Processor] 🚀 Starting indexing for ${documentId} (${textContent.length} chars)`);
 
