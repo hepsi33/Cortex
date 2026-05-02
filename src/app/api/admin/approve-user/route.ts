@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users } from "@/drizzle/schema";
+import { profiles } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -24,9 +24,9 @@ export async function POST(req: Request) {
         const status = action === "approve" ? "approved" : "rejected";
 
         await db
-            .update(users)
+            .update(profiles)
             .set({ status })
-            .where(eq(users.id, userId));
+            .where(eq(profiles.id, userId));
 
         return NextResponse.json({ message: `User ${status} successfully` });
     } catch (error) {

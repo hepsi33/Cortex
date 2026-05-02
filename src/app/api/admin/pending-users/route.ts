@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users } from "@/drizzle/schema";
+import { profiles } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
@@ -12,8 +12,8 @@ export async function GET() {
     }
 
     try {
-        const pendingUsers = await db.query.users.findMany({
-            where: eq(users.status, "pending"),
+        const pendingUsers = await db.query.profiles.findMany({
+            where: eq(profiles.status, "pending"),
             columns: {
                 id: true,
                 name: true,

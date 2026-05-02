@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { users } from "@/drizzle/schema";
+import { profiles } from "@/drizzle/schema";
 import { eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
@@ -15,29 +15,29 @@ export async function GET() {
         // Get counts for each status
         const [approvedCount] = await db
             .select({ count: sql<number>`count(*)` })
-            .from(users)
-            .where(eq(users.status, "approved"));
+            .from(profiles)
+            .where(eq(profiles.status, "approved"));
 
         const [pendingCount] = await db
             .select({ count: sql<number>`count(*)` })
-            .from(users)
-            .where(eq(users.status, "pending"));
+            .from(profiles)
+            .where(eq(profiles.status, "pending"));
 
         const [rejectedCount] = await db
             .select({ count: sql<number>`count(*)` })
-            .from(users)
-            .where(eq(users.status, "rejected"));
+            .from(profiles)
+            .where(eq(profiles.status, "rejected"));
 
         // Get total users (excluding admins for "active" count)
         const [totalUsers] = await db
             .select({ count: sql<number>`count(*)` })
-            .from(users)
-            .where(eq(users.role, "user"));
+            .from(profiles)
+            .where(eq(profiles.role, "user"));
 
         const [adminCount] = await db
             .select({ count: sql<number>`count(*)` })
-            .from(users)
-            .where(eq(users.role, "admin"));
+            .from(profiles)
+            .where(eq(profiles.role, "admin"));
 
         return NextResponse.json({
             approved: Number(approvedCount.count),
