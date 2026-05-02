@@ -200,14 +200,10 @@ async function processDocumentChunks(documentId: string, textContent: string) {
     for (let i = 0; i < totalChunks; i++) {
         const content = chunks[i].pageContent;
 
-        // Adaptive rate limiting: slow down for Gemini free tier (15 RPM)
-        // Every 5 chunks, pause briefly. Every 14 chunks (near the RPM limit), pause longer.
+        // Gemini free tier = 15 RPM for embeddings.
+        // 60s / 15 = 4s minimum gap. Using 4.5s to stay safely under.
         if (i > 0) {
-            if (i % 14 === 0) {
-                await new Promise(resolve => setTimeout(resolve, 4000));
-            } else if (i % 5 === 0) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
+            await new Promise(resolve => setTimeout(resolve, 4500));
         }
 
         try {
