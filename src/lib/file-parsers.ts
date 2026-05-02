@@ -64,10 +64,10 @@ export async function parsePptx(buffer: Buffer): Promise<string> {
 
         for (const slideFile of slideFiles) {
             const content = await zip.files[slideFile].async('string');
-            // Extract text from <a:t> nodes
-            const matches = content.match(/<a:t>([^<]*)<\/a:t>/g);
+            // Extract text from <a:t> nodes (handles attributes like xml:space)
+            const matches = content.match(/<a:t[^>]*>([^<]*)<\/a:t>/g);
             if (matches) {
-                const slideText = matches.map(m => m.replace(/<a:t>|<\/a:t>/g, '')).join(' ');
+                const slideText = matches.map(m => m.replace(/<a:t[^>]*>|<\/a:t>/g, '')).join(' ');
                 fullText += `[Slide] ${slideText}\n`;
             }
         }
@@ -75,9 +75,9 @@ export async function parsePptx(buffer: Buffer): Promise<string> {
         // Also extract speaker notes if they exist
         for (const notesFile of notesFiles) {
             const content = await zip.files[notesFile].async('string');
-            const matches = content.match(/<a:t>([^<]*)<\/a:t>/g);
+            const matches = content.match(/<a:t[^>]*>([^<]*)<\/a:t>/g);
             if (matches) {
-                const notesText = matches.map(m => m.replace(/<a:t>|<\/a:t>/g, '')).join(' ');
+                const notesText = matches.map(m => m.replace(/<a:t[^>]*>|<\/a:t>/g, '')).join(' ');
                 fullText += `[Notes] ${notesText}\n`;
             }
         }
