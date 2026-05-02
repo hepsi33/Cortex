@@ -1,43 +1,35 @@
-
 import mammoth from 'mammoth';
 import officeParser from 'officeparser';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize Gemini for Vision
-// @ts-ignore
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-// Helper to get first working vision model
-async function getVisionModel() {
-    const candidates = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro-vision"];
-    for (const model of candidates) {
-        try {
-            return genAI.getGenerativeModel({ model: model });
-        } catch (e) {
-            continue;
-        }
-    }
-    return genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); // Default
-}
-
-// We'll initialize lazily inside the function or just use a default for now and handle errors dynamically
-const visionModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }); // Using Pro for better OCR
-
 export async function parsePdf(buffer: Buffer): Promise<string> {
+    const sizeMB = (buffer.length / 1024 / 1024).toFixed(1);
+    console.log(`[Parser] Parsing PDF (${sizeMB}MB)...`);
+
     try {
-        // pdf-parse can have different export styles depending on environment
         const pdf: any = await import('pdf-parse');
         const pdfParse = pdf.default || pdf;
         
         if (typeof pdfParse !== 'function') {
-            console.error("[Parser] pdf-parse is not a function:", pdfParse);
+            console.error("[Parser] pdf-parse is not a function:", typeof pdfParse);
             throw new Error("PDF parser initialization failed");
         }
         
-        const data = await pdfParse(buffer);
+        // pdf-parse options: limit pages for very large files to prevent OOM
+        const options: any = {};
+        
+        const data = await pdfParse(buffer, options);
+        
+        if (!data.text || data.text.trim().length < 10) {
+            throw new Error(`PDF parsed but content too short (${data.text?.length || 0} chars). May be image-only.`);
+        }
+
+        console.log(`[Parser] PDF parsed: ${data.numpages} pages, ${data.text.length} chars`);
         return data.text;
     } catch (err: any) {
-        console.error("[Parser] PDF Parse logic error:", err);
+        console.error(`[Parser] PDF parse error:`, err.message);
         throw err;
     }
 }
@@ -47,14 +39,11 @@ export async function parseDocx(buffer: Buffer): Promise<string> {
         const result = await mammoth.extractRawText({ buffer: buffer });
         return result.value;
     } catch (e) {
-        console.warn("Mammoth failed, trying OfficeParser...", e);
+        console.warn("[Parser] Mammoth failed, trying OfficeParser...", e);
         return new Promise((resolve, reject) => {
             // @ts-ignore
             officeParser.parseOffice(buffer, { outputErrorToConsole: false }, (data: string, err: Error) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
+                if (err) { reject(err); return; }
                 resolve(data);
             });
         });
@@ -62,21 +51,24 @@ export async function parseDocx(buffer: Buffer): Promise<string> {
 }
 
 export async function parsePptx(buffer: Buffer): Promise<string> {
-    // officeparser callbacks to promise
     return new Promise((resolve, reject) => {
         // @ts-ignore
         officeParser.parseOffice(buffer, { outputErrorToConsole: false }, (data: string, err: Error) => {
-            if (err) {
-                reject(err);
-                return;
-            }
+            if (err) { reject(err); return; }
             resolve(data);
         });
     });
 }
 
 export async function parseImage(buffer: Buffer, mimeType: string): Promise<string> {
-    // Only gemini-2.0-flash seems available for this key, so we focus on retrying it
+    const sizeMB = (buffer.length / 1024 / 1024).toFixed(1);
+    console.log(`[Parser] Processing image (${sizeMB}MB, ${mimeType})...`);
+
+    // Gemini has a ~20MB inline data limit; reject oversized images early
+    if (buffer.length > 20 * 1024 * 1024) {
+        throw new Error(`Image too large (${sizeMB}MB). Maximum supported size is 20MB.`);
+    }
+
     const modelName = "gemini-2.0-flash";
     const maxRetries = 3;
 
@@ -88,42 +80,45 @@ export async function parseImage(buffer: Buffer, mimeType: string): Promise<stri
     };
     const prompt = `This is a document or a textbook page. Please extract ALL text from this image exactly as it appears. 
     Maintain the structure (headings, lists, tables). 
-    If there are diagrams, describe them. 
-    DO NOT just list the alphabet or numbers; read the actual content of the document.
+    If there are diagrams, describe them briefly.
     Return ONLY the extracted text and descriptions.`;
 
-    let lastError;
+    let lastError: any;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
             const model = genAI.getGenerativeModel({ model: modelName });
             const result = await model.generateContent([prompt, imagePart]);
             const response = await result.response;
-            return response.text();
+            const text = response.text();
+            
+            if (text && text.trim().length > 0) {
+                console.log(`[Parser] Image OCR success: ${text.length} chars extracted`);
+                return text;
+            }
+            throw new Error("Gemini returned empty text for image");
         } catch (error: any) {
             const msg = error.message || '';
             lastError = error;
 
             if (msg.includes("429") && attempt < maxRetries) {
-                const delay = Math.pow(2, attempt) * 2000; // 2s, 4s, 8s
-                console.warn(`Gemini 429 (Rate Limit). Retrying in ${delay / 1000}s... (Attempt ${attempt + 1}/${maxRetries})`);
+                const delay = Math.pow(2, attempt) * 3000;
+                console.warn(`[Parser] Rate limited. Waiting ${delay / 1000}s... (attempt ${attempt + 1}/${maxRetries})`);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
             }
-            break; // Don't retry non-429 errors blindly
+            
+            if (attempt < maxRetries) {
+                console.warn(`[Parser] Image attempt ${attempt + 1} failed: ${msg}. Retrying...`);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                continue;
+            }
         }
     }
 
-    // GRACEFUL FALLBACK: Store base64 data so the image can be re-analyzed later via retry.
-    const sizeKB = Math.round(buffer.length / 1024);
-    const base64Data = buffer.toString('base64');
-    console.warn(`Gemini Vision unavailable (${lastError?.message}). Storing image for later re-analysis (${sizeKB}KB, ${mimeType}).`);
-    return `[IMAGE_PENDING_ANALYSIS]
-mimeType: ${mimeType}
-size: ${sizeKB}KB
-data: ${base64Data}
-[/IMAGE_PENDING_ANALYSIS]
-AI vision analysis was unavailable at upload time due to API rate limits. Use the retry button to re-analyze when quota resets.`;
+    // If all retries fail, return a descriptive placeholder instead of base64 blob
+    console.error(`[Parser] All image OCR attempts failed: ${lastError?.message}`);
+    return `[Image: ${mimeType}, ${sizeMB}MB] — AI vision analysis failed after ${maxRetries} attempts. Error: ${lastError?.message || 'Unknown'}. Please re-upload when API quota resets.`;
 }
 
 export async function parseText(buffer: Buffer): Promise<string> {
