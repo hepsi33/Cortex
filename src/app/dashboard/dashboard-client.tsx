@@ -95,31 +95,34 @@ export function UserDashboardClient({
                     <p className="text-[10px] font-bold tracking-[0.5em] text-[#e100ff]">CORTEX.SYS</p>
                 </div>
 
-                {/* HUD: Bottom Left (Hexagons) */}
-                <div className="absolute bottom-8 left-8 opacity-70 flex items-center gap-2">
+                {/* HUD: Bottom Left (Hexagons) - Hidden on Mobile to prevent overlap */}
+                <div className="hidden md:flex absolute bottom-8 left-8 opacity-70 items-center gap-2">
                     <div className="relative w-16 h-16 animate-[spin_20s_linear_infinite]">
-                        <svg viewBox="0 0 100 100" className="w-full h-full fill-none stroke-[#e100ff] stroke-1">
-                            <polygon points="50,5 95,25 95,75 50,95 5,75 5,25" />
-                        </svg>
-                        <svg viewBox="0 0 100 100" className="absolute top-0 left-0 w-full h-full fill-none stroke-[#e100ff] stroke-[0.5] rotate-90 scale-75">
-                            <polygon points="50,5 95,25 95,75 50,95 5,75 5,25" />
-                        </svg>
+                        <div className="absolute inset-0 border border-[#e100ff]/20 [clip-path:polygon(50%_0%,100%_25%,100%_75%,50%_100%,0%_75%,0%_25%)]" />
+                        <div className="absolute inset-2 border border-[#e100ff]/40 [clip-path:polygon(50%_0%,100%_25%,100%_75%,50%_100%,0%_75%,0%_25%)]" />
                     </div>
-                    <div className="h-[1px] w-24 bg-gradient-to-r from-[#e100ff]/50 to-transparent" />
-                </div>
-
-                {/* HUD: Bottom Right (Mechanical Circle & Sparkle) */}
-                <div className="absolute bottom-8 right-8 flex flex-col items-end gap-4 opacity-70">
-                    <div className="animate-star-sparkle text-white text-2xl leading-none">✦</div>
-                    <div className="relative w-20 h-20 animate-[spin_15s_linear_infinite_reverse]">
-                        <svg viewBox="0 0 100 100" className="w-full h-full fill-none stroke-[#e100ff] stroke-1">
-                            <circle cx="50" cy="50" r="45" strokeDasharray="4 4" />
-                            <circle cx="50" cy="50" r="35" />
-                            <circle cx="50" cy="50" r="25" strokeDasharray="10 5" />
-                        </svg>
+                    <div className="space-y-1">
+                        <div className="flex gap-1">
+                            {[1,1,0,1].map((v, i) => <div key={i} className={`w-1 h-3 ${v ? 'bg-[#e100ff]' : 'bg-white/10'}`} />)}
+                        </div>
+                        <p className="text-[8px] font-bold tracking-widest text-[#e100ff]">NODE.042</p>
                     </div>
                 </div>
 
+                {/* HUD: Bottom Right (Scanning) - Hidden on Mobile to prevent overlap */}
+                <div className="hidden md:flex absolute bottom-8 right-8 opacity-70 items-end gap-4">
+                    <div className="text-right">
+                        <p className="text-[8px] font-bold tracking-widest text-[#00d4ff]">SCANNING.CORE</p>
+                        <p className="text-[10px] font-black text-white tabular-nums">SYNC: 98.4%</p>
+                    </div>
+                    <div className="relative w-16 h-16">
+                        <div className="absolute inset-0 border-2 border-[#00d4ff]/20 rounded-full animate-ping" />
+                        <div className="absolute inset-2 border border-[#00d4ff]/40 rounded-full animate-[spin_4s_linear_infinite]" style={{ borderRightColor: 'transparent' }} />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-1 h-1 bg-[#00d4ff] rounded-full animate-pulse" />
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

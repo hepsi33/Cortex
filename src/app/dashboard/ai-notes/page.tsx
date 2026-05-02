@@ -66,70 +66,64 @@ export default function VideosPage() {
             </div>
 
             {/* Header */}
-            <header className="px-8 h-24 flex items-center justify-between sticky top-0 z-50 bg-[#0a0a0c]/60 backdrop-blur-3xl border-b border-white/5">
-                <div className="flex items-center gap-6">
+            <header className="px-4 md:px-8 h-20 md:h-24 flex items-center justify-between sticky top-0 z-50 bg-[#0a0a0c]/60 backdrop-blur-3xl border-b border-white/5">
+                <div className="flex items-center gap-4 md:gap-6">
                     <button 
                         onClick={() => router.push("/dashboard")}
-                        className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-[#e100ff] hover:text-white transition-all group cursor-target"
+                        className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-[#e100ff] hover:text-white transition-all group cursor-target"
                     >
-                        <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                        <ArrowLeft className="w-4 h-4 md:w-5 md:h-5 group-hover:-translate-x-1 transition-transform" />
                     </button>
                     <div>
-                        <h1 className="text-3xl font-black italic tracking-tighter uppercase leading-none">AI Notes</h1>
-                        <p className="text-[10px] text-[#00d4ff] font-black uppercase tracking-widest mt-1">Neural Summarizer</p>
+                        <h1 className="text-xl md:text-3xl font-black italic tracking-tighter uppercase leading-none">AI Notes</h1>
+                        <p className="text-[8px] md:text-[10px] text-[#00d4ff] font-black uppercase tracking-widest mt-1">Neural Summarizer</p>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-4">
                     {notes && (
-                        <div className="flex gap-4">
+                        <div className="flex gap-2 md:gap-4">
                             <Button 
                                 variant="ghost" 
                                 onClick={handleDownload}
-                                className="h-14 px-8 rounded-2xl bg-white/5 text-white/60 hover:bg-white hover:text-black text-[10px] font-black uppercase tracking-widest transition-all shadow-2xl cursor-target"
+                                className="h-10 md:h-14 px-4 md:px-8 rounded-xl md:rounded-2xl bg-white/5 text-white/60 hover:bg-white hover:text-black text-[8px] md:text-[10px] font-black uppercase tracking-widest transition-all shadow-2xl cursor-target"
                             >
-                                <Download className="w-4 h-4 mr-3" />
-                                Export TXT
-                            </Button>
-                            <Button 
-                                variant="ghost" 
-                                onClick={() => setNotes("")}
-                                className="h-14 px-8 rounded-2xl bg-white/5 text-white/20 hover:text-rose-500 text-[10px] font-black uppercase tracking-widest transition-all cursor-target"
-                            >
-                                Clear Session
+                                <Download className="w-3 h-3 md:w-4 md:h-4 mr-2 md:mr-3" />
+                                <span className="hidden sm:inline">Export TXT</span>
+                                <span className="sm:hidden">Export</span>
                             </Button>
                         </div>
                     )}
                 </div>
             </header>
 
-            <main className="max-w-6xl mx-auto px-8 py-16 relative z-10">
+            <main className="max-w-6xl mx-auto px-4 md:px-8 py-8 md:py-16 relative z-10">
                 {/* Input Area */}
                 {!notes && (
-                    <div className="max-w-3xl mx-auto py-24 text-center space-y-12">
-                        <div className="relative mx-auto w-28 h-28 cursor-target">
+                    <div className="max-w-3xl mx-auto py-12 md:py-24 text-center space-y-8 md:space-y-12">
+                        <div className="relative mx-auto w-20 h-20 md:w-28 md:h-28 cursor-target">
                             <div className="absolute inset-0 bg-[#e100ff]/20 blur-2xl rounded-full" />
-                            <div className="relative w-full h-full rounded-[2.5rem] bg-[#0a0a0c]/80 backdrop-blur-3xl border border-white/5 flex items-center justify-center shadow-4xl">
-                                <Youtube className="w-12 h-12 text-[#e100ff]" />
+                            <div className="relative w-full h-full rounded-2xl md:rounded-[2.5rem] bg-[#0a0a0c]/80 backdrop-blur-3xl border border-white/5 flex items-center justify-center shadow-4xl">
+                                <Youtube className="w-8 h-8 md:w-12 md:h-12 text-[#e100ff]" />
                             </div>
                         </div>
-                        <div className="space-y-4">
-                            <h2 className="text-4xl font-black italic tracking-tighter uppercase leading-none">What are we learning today?</h2>
-                            <p className="text-white/20 text-sm font-medium italic">Transform any lecture or tutorial into precision notes instantly.</p>
+                        <div className="space-y-3 md:space-y-4">
+                            <h2 className="text-2xl md:text-4xl font-black italic tracking-tighter uppercase leading-none">What are we learning today?</h2>
+                            <p className="text-white/20 text-xs md:text-sm font-medium italic">Transform any lecture or tutorial into precision notes instantly.</p>
                         </div>
-                        <div className="flex gap-4 p-2 bg-white/5 rounded-3xl border border-white/5 backdrop-blur-3xl shadow-4xl">
+                        <div className="flex flex-col sm:flex-row gap-4 p-2 bg-white/5 rounded-2xl md:rounded-3xl border border-white/5 backdrop-blur-3xl shadow-4xl">
                             <Input
                                 placeholder="Paste YouTube Link"
-                                className="h-16 bg-transparent border-none px-8 text-sm focus:ring-0 placeholder:text-white/10"
+                                className="h-12 md:h-16 bg-transparent border-none px-6 md:px-8 text-sm focus:ring-0 placeholder:text-white/10"
                                 value={url}
                                 onChange={(e) => setUrl(e.target.value)}
                             />
                             <Button
                                 onClick={handleGenerate}
                                 disabled={loading || !url}
-                                className="h-16 px-12 rounded-2xl bg-[#e100ff] hover:bg-[#e100ff]/80 text-white font-black uppercase tracking-widest shadow-2xl transition-all cursor-target"
+                                className="h-12 md:h-16 w-full sm:w-auto px-10 md:px-12 rounded-xl md:rounded-2xl bg-[#e100ff] hover:bg-[#e100ff]/80 text-white font-black uppercase tracking-widest shadow-2xl transition-all cursor-target"
                             >
-                                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Zap className="w-6 h-6" />}
+                                {loading ? <Loader2 className="w-5 h-5 md:w-6 md:h-6 animate-spin" /> : <Zap className="w-5 h-5 md:w-6 md:h-6" />}
                             </Button>
                         </div>
                         {error && <p className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] animate-pulse">{error}</p>}
