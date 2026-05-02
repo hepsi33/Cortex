@@ -17,11 +17,11 @@ const embeddingModel = genAI.getGenerativeModel({ model: "gemini-embedding-001" 
 async function batchEmbed(texts: string[], maxRetries = 4): Promise<number[][]> {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            const result = await embeddingModel.batchEmbedContents(
-                texts.map(text => ({
-                    content: { parts: [{ text }], role: 'user' }
+            const result = await embeddingModel.batchEmbedContents({
+                requests: texts.map(text => ({
+                    content: { parts: [{ text }], role: 'user' as const }
                 }))
-            );
+            });
             return result.embeddings.map(e => e.values);
         } catch (error: any) {
             const msg = error.message || '';

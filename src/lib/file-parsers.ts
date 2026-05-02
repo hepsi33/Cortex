@@ -14,14 +14,14 @@ export async function parsePdf(buffer: Buffer): Promise<string> {
         // pdf-parse v2 requires Uint8Array, not Buffer
         const uint8 = new Uint8Array(buffer);
         const parser = new PDFParse(uint8);
-        await parser.load();
-        const text = await parser.getText();
+        const result = await parser.getText();
+        const text = result.text;
         
         if (!text || text.trim().length < 10) {
             throw new Error(`PDF parsed but content too short (${text?.length || 0} chars). May be image-only.`);
         }
 
-        console.log(`[Parser] PDF parsed: ${text.length} chars`);
+        console.log(`[Parser] PDF parsed: ${result.pages} pages, ${text.length} chars`);
         return text;
     } catch (err: any) {
         console.error(`[Parser] PDF parse error:`, err.message);
