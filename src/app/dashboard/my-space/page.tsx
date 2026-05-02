@@ -33,37 +33,13 @@ export default function MySpacePage() {
                 />
             </div>
 
-            {/* Mobile Tab Bar - Fixed at bottom for better thumb reach */}
-            <div className="md:hidden flex fixed bottom-0 left-0 w-full border-t border-white/10 bg-[#0a0a0c]/90 backdrop-blur-3xl z-50 h-16">
-                <button
-                    onClick={() => setMobileTab('docs')}
-                    className={cn(
-                        "flex-1 flex flex-col items-center justify-center gap-1 transition-all",
-                        mobileTab === 'docs' ? 'text-[#00d4ff]' : 'text-white/40'
-                    )}
-                >
-                    <List className="w-5 h-5" />
-                    <span className="text-[9px] font-black uppercase tracking-widest">Files</span>
-                </button>
-                <button
-                    onClick={() => setMobileTab('chat')}
-                    className={cn(
-                        "flex-1 flex flex-col items-center justify-center gap-1 transition-all",
-                        mobileTab === 'chat' ? 'text-[#e100ff]' : 'text-white/40'
-                    )}
-                >
-                    <MessageSquare className="w-5 h-5" />
-                    <span className="text-[9px] font-black uppercase tracking-widest">Neural Chat</span>
-                </button>
-            </div>
-
             {/* Left Sidebar: My Files */}
             <div className={cn(
-                "md:flex w-full md:w-[400px] border-r border-white/5 bg-[#0a0a0c]/40 backdrop-blur-3xl flex-col shrink-0 overflow-hidden transition-all z-10 pb-16 md:pb-0",
+                "md:flex w-full md:w-[400px] border-r border-white/5 bg-[#0a0a0c]/40 backdrop-blur-3xl flex-col shrink-0 overflow-hidden transition-all z-10",
                 mobileTab === 'chat' ? 'hidden' : 'flex'
             )}>
                 {/* Header */}
-                <div className="p-6 md:p-10 space-y-6 md:space-y-10">
+                <div className="p-10 space-y-10">
                     <button
                         onClick={() => window.location.href = '/dashboard'}
                         className="relative z-50 flex items-center gap-3 text-[10px] font-black text-white/20 hover:text-[#e100ff] uppercase tracking-[0.3em] transition-all group cursor-target"
@@ -73,12 +49,12 @@ export default function MySpacePage() {
                     </button>
                     
                     <div className="space-y-1">
-                        <h1 className="text-2xl md:text-4xl font-black tracking-tighter uppercase italic leading-none">My Space</h1>
-                        <p className="text-[8px] md:text-[10px] text-[#e100ff] font-black uppercase tracking-widest italic mt-1 md:mt-2">Personal Repository</p>
+                        <h1 className="text-4xl font-black tracking-tighter uppercase italic leading-none">My Space</h1>
+                        <p className="text-[10px] text-[#e100ff] font-black uppercase tracking-widest italic mt-2">Personal Repository</p>
                     </div>
 
                     <div className="space-y-3">
-                        <label className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-white/20 ml-1">Current Space</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-1">Current Space</label>
                         <WorkspaceSelector
                             currentWorkspace={currentWorkspace}
                             onWorkspaceChange={setCurrentWorkspace}
@@ -87,7 +63,7 @@ export default function MySpacePage() {
                 </div>
 
                 {/* Document List */}
-                <div className="flex-1 overflow-hidden px-4 md:px-6 pb-4 md:pb-10">
+                <div className="flex-1 overflow-hidden px-6 pb-10">
                     {currentWorkspace ? (
                         <DocumentManager workspaceId={currentWorkspace.id} />
                     ) : (
@@ -101,43 +77,50 @@ export default function MySpacePage() {
 
             {/* Main Chat Area */}
             <div className={cn(
-                "flex-1 flex flex-col min-w-0 bg-transparent overflow-hidden relative z-10 pb-16 md:pb-0",
+                "flex-1 flex flex-col min-w-0 bg-transparent overflow-hidden relative z-10",
                 mobileTab === 'docs' ? 'hidden md:flex' : 'flex'
             )}>
                 {/* Chat Header */}
-                <div className="h-20 md:h-24 border-b border-white/5 px-6 md:px-10 flex items-center justify-between shrink-0 bg-[#0a0a0c]/60 backdrop-blur-3xl z-10">
-                    <div className="flex items-center gap-3 md:gap-5">
-                        <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-[#e100ff]/10 border border-[#e100ff]/20 flex items-center justify-center shadow-2xl">
-                            <MessageSquare className="w-5 h-5 md:w-6 md:h-6 text-[#e100ff]" />
+                <div className="h-24 border-b border-white/5 px-10 flex items-center justify-between shrink-0 bg-[#0a0a0c]/60 backdrop-blur-3xl z-10">
+                    <div className="flex items-center gap-5">
+                        <div className="w-14 h-14 rounded-2xl bg-[#e100ff]/10 border border-[#e100ff]/20 flex items-center justify-center shadow-2xl">
+                            <MessageSquare className="w-6 h-6 text-[#e100ff]" />
                         </div>
                         <div>
-                            <h2 className="text-sm md:text-lg font-black tracking-tighter text-white uppercase italic">
+                            <h2 className="text-lg font-black tracking-tighter text-white uppercase italic">
                                 {currentWorkspace ? currentWorkspace.name : 'Waiting for Space'}
                             </h2>
-                            <p className="text-[8px] md:text-[10px] text-[#00d4ff] uppercase font-black tracking-widest mt-0.5 md:mt-1 italic">
+                            <p className="text-[10px] text-[#00d4ff] uppercase font-black tracking-widest mt-1 italic">
                                 {currentWorkspace ? 'Context Active' : 'Select a source to begin'}
                             </p>
                         </div>
                     </div>
 
-                    {/* Quick Analysis - Hidden on small mobile */}
-                    <div className="hidden sm:flex items-center gap-4">
+                    {/* Quick Analysis */}
+                    <div className="flex items-center gap-4">
                         {currentWorkspace && (
                             <div className="flex items-center gap-3 mr-6 pr-6 border-r border-white/5">
                                 <Button 
                                     variant="ghost" 
                                     onClick={() => window.dispatchEvent(new CustomEvent('trigger-chat-action', { detail: 'Summarize the selected documents with high precision.' }))}
-                                    className="h-10 md:h-12 px-4 md:px-6 bg-white/5 hover:bg-[#e100ff] hover:text-white rounded-xl text-[8px] md:text-[10px] font-black uppercase tracking-widest transition-all shadow-xl cursor-target"
+                                    className="h-12 px-6 bg-white/5 hover:bg-[#e100ff] hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl cursor-target"
                                 >
-                                    <Zap className="w-3 h-3 md:w-4 md:h-4 mr-2 md:mr-3" /> Summary
+                                    <Zap className="w-4 h-4 mr-3" /> Summary
+                                </Button>
+                                <Button 
+                                    variant="ghost" 
+                                    onClick={() => window.dispatchEvent(new CustomEvent('trigger-chat-action', { detail: 'Extract the most important key points and insights from the selected documents, providing references where possible.' }))}
+                                    className="h-12 px-6 bg-white/5 hover:bg-[#e100ff] hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl cursor-target"
+                                >
+                                    <List className="w-4 h-4 mr-3" /> Key Points
                                 </Button>
                             </div>
                         )}
-                        <div className="flex bg-white/5 p-1 rounded-xl md:rounded-2xl border border-white/10">
+                        <div className="flex bg-white/5 p-1.5 rounded-2xl border border-white/10">
                             <button 
                                 onClick={() => setIsStrict(true)}
                                 className={cn(
-                                    "px-4 md:px-6 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[8px] md:text-[10px] font-black uppercase tracking-widest transition-all",
+                                    "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
                                     isStrict ? "bg-[#e100ff] text-white" : "text-white/40 hover:text-white"
                                 )}
                             >
@@ -146,7 +129,7 @@ export default function MySpacePage() {
                             <button 
                                 onClick={() => setIsStrict(false)}
                                 className={cn(
-                                    "px-4 md:px-6 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[8px] md:text-[10px] font-black uppercase tracking-widest transition-all",
+                                    "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
                                     !isStrict ? "bg-[#e100ff] text-white" : "text-white/40 hover:text-white"
                                 )}
                             >
@@ -157,11 +140,33 @@ export default function MySpacePage() {
                 </div>
 
                 {/* Chat Interface */}
-                <div className="flex-1 overflow-hidden p-4 md:p-8">
+                <div className="flex-1 overflow-hidden p-8">
                     <ChatInterface 
                         workspaceId={currentWorkspace?.id || null} 
                         mode={isStrict ? 'strict' : 'research'}
                     />
+                </div>
+
+                {/* Mobile Tab Switcher */}
+                <div className="md:hidden absolute bottom-10 left-1/2 -translate-x-1/2 flex bg-white/5 backdrop-blur-3xl border border-white/10 rounded-full p-2 shadow-4xl z-50">
+                    <button
+                        onClick={() => setMobileTab('docs')}
+                        className={cn(
+                            "px-10 py-4 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
+                            mobileTab === 'docs' ? "bg-white text-black" : "text-white/40"
+                        )}
+                    >
+                        Files
+                    </button>
+                    <button
+                        onClick={() => setMobileTab('chat')}
+                        className={cn(
+                            "px-10 py-4 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
+                            mobileTab === 'chat' ? "bg-white text-black" : "text-white/40"
+                        )}
+                    >
+                        Chat
+                    </button>
                 </div>
             </div>
         </div>

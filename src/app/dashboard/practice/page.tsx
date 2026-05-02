@@ -204,16 +204,16 @@ export default function PracticePage() {
                             exit={{ opacity: 0, y: -30 }}
                             className="space-y-16"
                         >
-                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                                <div className="space-y-2 md:space-y-4">
-                                    <h2 className="text-3xl md:text-5xl font-black tracking-tighter italic uppercase leading-none">Pick a Space</h2>
-                                    <p className="text-white/20 text-xs md:text-sm font-medium italic">Select a knowledge source to practice from.</p>
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-4">
+                                    <h2 className="text-5xl font-black tracking-tighter italic uppercase leading-none">Pick a Space</h2>
+                                    <p className="text-white/20 text-sm font-medium italic">Select a knowledge source to practice from.</p>
                                 </div>
                                 <Button 
                                     onClick={() => window.location.href = '/dashboard/my-space'}
-                                    className="h-12 md:h-16 w-full md:w-auto px-8 md:px-10 rounded-xl md:rounded-2xl bg-white text-black font-black uppercase tracking-widest hover:bg-[#e100ff] hover:text-white transition-all shadow-2xl cursor-target text-[10px] md:text-sm"
+                                    className="h-16 px-10 rounded-2xl bg-white text-black font-black uppercase tracking-widest hover:bg-[#e100ff] hover:text-white transition-all shadow-2xl cursor-target"
                                 >
-                                    <Plus className="w-4 h-4 md:w-5 md:h-5 mr-3" />
+                                    <Plus className="w-5 h-5 mr-3" />
                                     New Space
                                 </Button>
                             </div>
@@ -518,34 +518,32 @@ export default function PracticePage() {
                                 </motion.div>
                             </div>
 
-                             <div className="flex flex-col md:flex-row items-center justify-center gap-6">
-                                <div className="flex gap-4 w-full md:w-auto">
-                                    <Button 
-                                        disabled={currentCardIndex === 0}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setCurrentCardIndex(i => i - 1);
+                            <div className="flex justify-center gap-6">
+                                <Button 
+                                    disabled={currentCardIndex === 0}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCurrentCardIndex(i => i - 1);
+                                        setIsFlipped(false);
+                                    }}
+                                    className="h-16 px-10 rounded-2xl bg-white/5 border border-white/10 text-white hover:bg-white hover:text-black font-black uppercase tracking-widest transition-all cursor-target"
+                                >
+                                    Prev
+                                </Button>
+                                <Button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (currentCardIndex < flashcards.length - 1) {
+                                            setCurrentCardIndex(i => i + 1);
                                             setIsFlipped(false);
-                                        }}
-                                        className="h-14 md:h-16 flex-1 md:flex-initial px-8 md:px-10 rounded-xl md:rounded-2xl bg-white/5 border border-white/10 text-white hover:bg-white hover:text-black font-black uppercase tracking-widest transition-all cursor-target text-[10px] md:text-sm"
-                                    >
-                                        Prev
-                                    </Button>
-                                    <Button 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (currentCardIndex < flashcards.length - 1) {
-                                                setCurrentCardIndex(i => i + 1);
-                                                setIsFlipped(false);
-                                            } else {
-                                                setView('results');
-                                            }
-                                        }}
-                                        className="h-14 md:h-16 flex-1 md:flex-initial px-8 md:px-10 rounded-xl md:rounded-2xl bg-white text-black font-black uppercase tracking-widest hover:bg-[#00d4ff] hover:text-black transition-all shadow-4xl cursor-target text-[10px] md:text-sm"
-                                    >
-                                        {currentCardIndex < flashcards.length - 1 ? "Next" : "Finish"}
-                                    </Button>
-                                </div>
+                                        } else {
+                                            setView('results');
+                                        }
+                                    }}
+                                    className="h-16 px-16 rounded-2xl bg-white text-black font-black uppercase tracking-widest hover:bg-[#00d4ff] hover:text-black transition-all shadow-4xl cursor-target"
+                                >
+                                    {currentCardIndex < flashcards.length - 1 ? "Next Card" : "Complete Review"}
+                                </Button>
                             </div>
                         </motion.div>
                     )}

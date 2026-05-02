@@ -33,11 +33,6 @@ const TargetCursor = ({
   const targetCornerPositionsRef = useRef<TargetCornerPosition[] | null>(null);
   const tickerFnRef = useRef<(() => void) | null>(null);
   const activeStrengthRef = useRef({ current: 0 });
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const isMobile = useMemo(() => {
     if (typeof window === 'undefined') return false;
@@ -332,7 +327,7 @@ const TargetCursor = ({
     }
   }, [spinDuration, isMobile]);
 
-  if (!mounted || isMobile) {
+  if (isMobile) {
     return null;
   }
 

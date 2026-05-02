@@ -1,7 +1,7 @@
 "use client";
 
 import { Renderer, Program, Mesh, Triangle } from 'ogl';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 import './SoftAurora.css';
 
@@ -148,30 +148,25 @@ void main() {
 `;
 
 export default function SoftAurora({
-  speed = 0.4,
-  scale = 1.2,
-  brightness = 0.8,
-  color1 = "#00d4ff",
-  color2 = "#e100ff",
+  speed = 0.6,
+  scale = 1.5,
+  brightness = 1.0,
+  color1 = '#f7f7f7',
+  color2 = '#e100ff',
   noiseFrequency = 2.5,
-  noiseAmplitude = 0.3,
+  noiseAmplitude = 1.0,
   bandHeight = 0.5,
-  bandSpread = 0.2,
-  octaveDecay = 0.5,
-  layerOffset = 0.3,
+  bandSpread = 1.0,
+  octaveDecay = 0.1,
+  layerOffset = 0,
   colorSpeed = 1.0,
   enableMouseInteraction = true,
-  mouseInfluence = 0.2
+  mouseInfluence = 0.25
 }) {
   const containerRef = useRef(null);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted || !containerRef.current) return;
+    if (!containerRef.current) return;
     const container = containerRef.current;
     const renderer = new Renderer({ alpha: true, premultipliedAlpha: false });
     const gl = renderer.gl;
@@ -266,8 +261,6 @@ export default function SoftAurora({
       gl.getExtension('WEBGL_lose_context')?.loseContext();
     };
   }, [speed, scale, brightness, color1, color2, noiseFrequency, noiseAmplitude, bandHeight, bandSpread, octaveDecay, layerOffset, colorSpeed, enableMouseInteraction, mouseInfluence]);
-
-  if (!mounted) return null;
 
   return <div ref={containerRef} className="soft-aurora-container" />;
 }
