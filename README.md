@@ -1,6 +1,6 @@
 # 🧠 Cortex
 
-Cortex is a premium, high-fidelity AI Study OS designed for elite learners. It synthesizes deep research, distraction-free focus, and automated retrieval practice into a single, unified intelligence repository.
+Cortex is a premium, high-fidelity AI Study Partner designed for elite learners. It synthesizes deep research, distraction-free focus, and automated retrieval practice into a single, unified intelligence repository.
 
 🔗 **GitHub Repository:** [https://github.com/hepsi33/Cortex.git](https://github.com/hepsi33/Cortex.git)
 
