@@ -137,8 +137,8 @@
 }
 
 .markdown-content p {
-    margin-bottom: 1.25rem;
-    line-height: 1.75;
+    margin-bottom: 0.75rem;
+    line-height: 1.6;
 }
 
 .markdown-content p:last-child {
@@ -149,18 +149,18 @@
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: -0.02em;
-    margin-top: 2rem;
-    margin-bottom: 1rem;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
     color: white;
 }
 
 .markdown-content ul, .markdown-content ol {
-    margin-bottom: 1.25rem;
-    padding-left: 1.5rem;
+    margin-bottom: 0.75rem;
+    padding-left: 1.25rem;
 }
 
 .markdown-content li {
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
 }
 
 .markdown-content code {

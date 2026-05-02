@@ -118,10 +118,10 @@ export function ChatInterface({ workspaceId, chatId, mode = 'strict' }: ChatInte
     };
 
     return (
-        <div className="flex flex-col h-full bg-[#0a0a0c]/20 backdrop-blur-3xl rounded-[2.5rem] border border-white/5 overflow-hidden shadow-4xl relative">
+        <div className="flex flex-col h-full bg-[#0a0a0c]/20 backdrop-blur-3xl rounded-[2rem] border border-white/5 overflow-hidden shadow-4xl relative">
             {/* Messages Area */}
-            <ScrollArea className="flex-1 px-8 py-10">
-                <div className="space-y-12 pb-10">
+            <ScrollArea className="flex-1 px-4 md:px-10 py-6">
+                <div className="space-y-10 pb-6">
                     {messages.length === 0 && (
                         <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
                             <div className="w-20 h-20 bg-white/5 rounded-[2rem] flex items-center justify-center animate-pulse">
@@ -157,7 +157,7 @@ export function ChatInterface({ workspaceId, chatId, mode = 'strict' }: ChatInte
                                     ? "bg-white text-black font-medium rounded-tr-none shadow-2xl" 
                                     : "bg-white/[0.03] text-white/80 border border-white/5 rounded-tl-none backdrop-blur-xl"
                             )}>
-                                <div className="markdown-content whitespace-pre-wrap">
+                                <div className="markdown-content">
                                     <ReactMarkdown>
                                         {msg.content}
                                     </ReactMarkdown>
@@ -176,27 +176,14 @@ export function ChatInterface({ workspaceId, chatId, mode = 'strict' }: ChatInte
             </ScrollArea>
 
             {/* Input Area */}
-            <div className="p-8 border-t border-white/5 bg-[#0a0a0c]/60 backdrop-blur-3xl">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="flex items-center justify-between">
+            <div className="p-6 border-t border-white/5 bg-[#0a0a0c]/60 backdrop-blur-3xl">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="flex items-center justify-between px-2">
                         <div className="flex items-center gap-3">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setSearchWeb(!searchWeb)}
-                                className={cn(
-                                    "h-10 rounded-xl px-5 text-[10px] font-black uppercase tracking-widest transition-all shadow-xl",
-                                    searchWeb ? "bg-blue-500 text-white" : "bg-white/5 text-white/20 border border-white/5"
-                                )}
-                            >
-                                <Globe className="w-3.5 h-3.5 mr-2.5" />
-                                Search Web
-                            </Button>
                             {selectedDocIds.length > 0 && (
-                                <div className="flex items-center gap-2.5 px-5 h-10 bg-amber-400/10 border border-amber-400/20 rounded-xl">
-                                    <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                                    <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest">{selectedDocIds.length} Linked</span>
+                                <div className="flex items-center gap-2.5 px-4 h-8 bg-amber-400/10 border border-amber-400/20 rounded-xl">
+                                    <ShieldCheck className="w-3 h-3 text-amber-400" />
+                                    <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest">{selectedDocIds.length} Linked</span>
                                 </div>
                             )}
                         </div>

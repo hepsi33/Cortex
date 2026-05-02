@@ -140,7 +140,7 @@ export default function MySpacePage() {
                 </div>
 
                 {/* Chat Interface */}
-                <div className="flex-1 overflow-hidden p-8">
+                <div className="flex-1 overflow-hidden p-4 md:p-6">
                     <ChatInterface 
                         workspaceId={currentWorkspace?.id || null} 
                         mode={isStrict ? 'strict' : 'research'}

@@ -19,8 +19,10 @@ import { cn } from "@/lib/utils";
 interface Document {
     id: string;
     name: string;
-    type: string;
+    fileType: string;
     status: string;
+    chunkCount: number;
+    processedCount: number;
     createdAt: string;
 }
 
@@ -286,8 +288,8 @@ export function DocumentManager({ workspaceId }: { workspaceId: string }) {
                                         {selectedIds.has(doc.id) ? <CheckSquare className="w-5 h-5 text-amber-400" /> : <Square className="w-5 h-5" />}
                                     </button>
                                     <div className="p-3 bg-white/5 rounded-xl shrink-0">
-                                        {doc.type === "url" ? <Globe className="w-4 h-4 text-blue-400" /> : 
-                                         doc.type === "youtube" ? <Youtube className="w-4 h-4 text-red-500" /> :
+                                        {doc.fileType === "url" ? <Globe className="w-4 h-4 text-blue-400" /> : 
+                                         doc.fileType === "youtube" ? <Youtube className="w-4 h-4 text-red-500" /> :
                                          <File className="w-4 h-4 text-white/40" />}
                                     </div>
                                     <div className="min-w-0 flex-1 py-1">
@@ -298,9 +300,19 @@ export function DocumentManager({ workspaceId }: { workspaceId: string }) {
                                                     <Loader2 className="w-2.5 h-2.5 animate-spin" /> Syncing
                                                 </span>
                                             ) : doc.status === "indexing" ? (
-                                                <span className="flex items-center gap-1.5 text-[8px] font-black text-[#00d4ff] uppercase tracking-widest">
-                                                    <Sparkles className="w-2.5 h-2.5 animate-pulse" /> Indexing
-                                                </span>
+                                                <div className="flex flex-col gap-1 w-full max-w-[120px]">
+                                                    <span className="flex items-center gap-1.5 text-[8px] font-black text-[#00d4ff] uppercase tracking-widest">
+                                                        <Sparkles className="w-2.5 h-2.5 animate-pulse" /> Indexing {doc.chunkCount > 0 ? `(${Math.round((doc.processedCount || 0) / doc.chunkCount * 100)}%)` : ''}
+                                                    </span>
+                                                    {doc.chunkCount > 0 && (
+                                                        <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                                                            <div 
+                                                                className="h-full bg-[#00d4ff] transition-all duration-500" 
+                                                                style={{ width: `${Math.round((doc.processedCount || 0) / doc.chunkCount * 100)}%` }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
                                             ) : doc.status === "completed" ? (
                                                 <span className="flex items-center gap-1.5 text-[8px] font-black text-green-500 uppercase tracking-widest">
                                                     <CheckCircle2 className="w-2.5 h-2.5" /> Context Ready
