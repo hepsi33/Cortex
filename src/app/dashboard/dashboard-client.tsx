@@ -3,6 +3,7 @@
 import { SignOutButton } from "@/components/sign-out-button";
 import SoftAurora from "@/components/dashboard/SoftAurora";
 import FloatingCards from "@/components/dashboard/FloatingCards";
+import TargetCursor from "@/components/ui/TargetCursor";
 
 type DashboardClientProps = {
     displayName: string;
@@ -31,6 +32,11 @@ export function UserDashboardClient({
         <div 
             className="relative w-screen h-screen overflow-hidden text-white font-sans bg-[#020205]"
         >
+            <TargetCursor 
+                spinDuration={2}
+                hideDefaultCursor={true}
+                parallaxOn={true}
+            />
             
             {/* LAYER 1: Background Aurora */}
             <div className="absolute inset-0 z-0">
@@ -74,13 +80,15 @@ export function UserDashboardClient({
                     </div>
 
                     {/* User Info */}
-                    <div className="flex items-center gap-6 bg-black/40 px-6 py-3 rounded-full border border-white/10 backdrop-blur-md">
+                    <div className="flex items-center gap-6 bg-black/40 px-6 py-3 rounded-full border border-white/10 backdrop-blur-md cursor-target">
                         <div className="text-right">
                             <p className="text-sm font-black uppercase tracking-widest text-white truncate max-w-[120px]">{displayName}</p>
                             <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#e100ff]">ACTIVE VOYAGER</p>
                         </div>
                         <div className="w-[1px] h-6 bg-white/20"></div>
-                        <SignOutButton />
+                        <div className="cursor-target">
+                            <SignOutButton />
+                        </div>
                     </div>
                 </header>
 

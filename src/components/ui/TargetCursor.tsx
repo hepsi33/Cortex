@@ -1,13 +1,8 @@
-"use client";
+'use client';
 
 import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { gsap } from 'gsap';
 import './TargetCursor.css';
-
-interface TargetCornerPosition {
-  x: number;
-  y: number;
-}
 
 interface TargetCursorProps {
   targetSelector?: string;
@@ -25,12 +20,12 @@ const TargetCursor = ({
   parallaxOn = true
 }: TargetCursorProps) => {
   const cursorRef = useRef<HTMLDivElement>(null);
-  const cornersRef = useRef<NodeListOf<HTMLDivElement> | null>(null);
+  const cornersRef = useRef<NodeListOf<Element> | null>(null);
   const spinTl = useRef<gsap.core.Timeline | null>(null);
   const dotRef = useRef<HTMLDivElement>(null);
 
   const isActiveRef = useRef(false);
-  const targetCornerPositionsRef = useRef<TargetCornerPosition[] | null>(null);
+  const targetCornerPositionsRef = useRef<{ x: number, y: number }[] | null>(null);
   const tickerFnRef = useRef<(() => void) | null>(null);
   const activeStrengthRef = useRef({ current: 0 });
 
@@ -73,11 +68,11 @@ const TargetCursor = ({
     const cursor = cursorRef.current;
     cornersRef.current = cursor.querySelectorAll('.target-cursor-corner');
 
-    let activeTarget: HTMLElement | null = null;
+    let activeTarget: Element | null = null;
     let currentLeaveHandler: (() => void) | null = null;
     let resumeTimeout: NodeJS.Timeout | null = null;
 
-    const cleanupTarget = (target: HTMLElement) => {
+    const cleanupTarget = (target: Element) => {
       if (currentLeaveHandler) {
         target.removeEventListener('mouseleave', currentLeaveHandler);
       }
@@ -148,7 +143,7 @@ const TargetCursor = ({
       const elementUnderMouse = document.elementFromPoint(mouseX, mouseY);
       const isStillOverTarget =
         elementUnderMouse &&
-        (elementUnderMouse === activeTarget || (elementUnderMouse as HTMLElement).closest(targetSelector) === activeTarget);
+        (elementUnderMouse === activeTarget || elementUnderMouse.closest(targetSelector) === activeTarget);
       if (!isStillOverTarget) {
         if (currentLeaveHandler) {
           currentLeaveHandler();
@@ -173,9 +168,9 @@ const TargetCursor = ({
     window.addEventListener('mouseup', mouseUpHandler);
 
     const enterHandler = (e: MouseEvent) => {
-      const directTarget = e.target as HTMLElement;
-      const allTargets: HTMLElement[] = [];
-      let current: HTMLElement | null = directTarget;
+      const directTarget = e.target as Element;
+      const allTargets: Element[] = [];
+      let current: Element | null = directTarget;
       while (current && current !== document.body) {
         if (current.matches(targetSelector)) {
           allTargets.push(current);
@@ -232,7 +227,9 @@ const TargetCursor = ({
       });
 
       const leaveHandler = () => {
-        gsap.ticker.remove(tickerFnRef.current!);
+        if (tickerFnRef.current) {
+          gsap.ticker.remove(tickerFnRef.current);
+        }
 
         isActiveRef.current = false;
         targetCornerPositionsRef.current = null;

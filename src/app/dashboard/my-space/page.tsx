@@ -116,11 +116,11 @@ export default function MySpacePage() {
                                 </Button>
                             </div>
                         )}
-                        <div className="flex bg-white/5 p-1.5 rounded-2xl border border-white/10">
+                        <div className="flex bg-white/5 p-1.5 rounded-2xl border border-white/10 cursor-target">
                             <button 
                                 onClick={() => setIsStrict(true)}
                                 className={cn(
-                                    "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                    "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-target",
                                     isStrict ? "bg-[#e100ff] text-white" : "text-white/40 hover:text-white"
                                 )}
                             >
@@ -129,7 +129,7 @@ export default function MySpacePage() {
                             <button 
                                 onClick={() => setIsStrict(false)}
                                 className={cn(
-                                    "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                    "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-target",
                                     !isStrict ? "bg-[#e100ff] text-white" : "text-white/40 hover:text-white"
                                 )}
                             >
@@ -148,11 +148,11 @@ export default function MySpacePage() {
                 </div>
 
                 {/* Mobile Tab Switcher */}
-                <div className="md:hidden absolute bottom-10 left-1/2 -translate-x-1/2 flex bg-white/5 backdrop-blur-3xl border border-white/10 rounded-full p-2 shadow-4xl z-50">
+                <div className="md:hidden absolute bottom-10 left-1/2 -translate-x-1/2 flex bg-white/5 backdrop-blur-3xl border border-white/10 rounded-full p-2 shadow-4xl z-50 cursor-target">
                     <button
                         onClick={() => setMobileTab('docs')}
                         className={cn(
-                            "px-10 py-4 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
+                            "px-10 py-4 rounded-full text-[10px] font-black uppercase tracking-widest transition-all cursor-target",
                             mobileTab === 'docs' ? "bg-white text-black" : "text-white/40"
                         )}
                     >
@@ -161,7 +161,7 @@ export default function MySpacePage() {
                     <button
                         onClick={() => setMobileTab('chat')}
                         className={cn(
-                            "px-10 py-4 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
+                            "px-10 py-4 rounded-full text-[10px] font-black uppercase tracking-widest transition-all cursor-target",
                             mobileTab === 'chat' ? "bg-white text-black" : "text-white/40"
                         )}
                     >
