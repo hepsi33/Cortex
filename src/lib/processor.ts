@@ -182,7 +182,8 @@ export async function processUrl(documentId: string, url: string) {
  *   New (batch 100, 5s delay):      300 chunks = 15 seconds
  */
 async function processDocumentChunks(documentId: string, textContent: string) {
-    console.log(`[Processor] Chunking ${documentId} (${textContent.length} chars)...`);
+    const startTime = Date.now();
+    console.log(`[Processor] 🚀 Starting indexing for ${documentId} (${textContent.length} chars)`);
 
     const splitter = new RecursiveCharacterTextSplitter({
         chunkSize: 1000,
@@ -191,31 +192,33 @@ async function processDocumentChunks(documentId: string, textContent: string) {
 
     const chunks = await splitter.createDocuments([textContent]);
     const totalChunks = chunks.length;
-    console.log(`[Processor] ${totalChunks} chunks generated`);
+    console.log(`[Processor] 🧩 Generated ${totalChunks} chunks`);
 
     await db.update(documents)
         .set({ chunkCount: totalChunks, processedCount: 0 })
         .where(eq(documents.id, documentId));
 
-    // Process in batches of 100 (Gemini batch limit)
     const BATCH_SIZE = 100;
     let processedSoFar = 0;
 
     for (let batchStart = 0; batchStart < totalChunks; batchStart += BATCH_SIZE) {
         const batchEnd = Math.min(batchStart + BATCH_SIZE, totalChunks);
         const batchTexts = chunks.slice(batchStart, batchEnd).map(c => c.pageContent);
+        const batchNum = Math.floor(batchStart / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(totalChunks / BATCH_SIZE);
 
-        // Rate limit: wait between batches (each batch = 1 API call)
+        // Rate limit: 15 RPM = 1 request every 4s. Using 4.1s to be safe.
         if (batchStart > 0) {
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            await new Promise(resolve => setTimeout(resolve, 4100));
         }
 
         try {
-            console.log(`[Processor] Embedding batch ${Math.floor(batchStart / BATCH_SIZE) + 1}/${Math.ceil(totalChunks / BATCH_SIZE)} (chunks ${batchStart + 1}-${batchEnd})...`);
-            
+            console.log(`[Processor] 📡 Embedding batch ${batchNum}/${totalBatches}...`);
+            const embedStart = Date.now();
             const vectors = await batchEmbed(batchTexts);
+            console.log(`[Processor] ⚡ Embedded ${vectors.length} chunks in ${Date.now() - embedStart}ms`);
 
-            // Prepare DB rows
+            // Prepare all rows for this batch
             const rows = vectors.map((vector, i) => ({
                 documentId,
                 content: batchTexts[i],
@@ -223,11 +226,11 @@ async function processDocumentChunks(documentId: string, textContent: string) {
                 vector
             }));
 
-            // Insert in sub-batches of 50 to avoid oversized DB queries
-            for (let dbStart = 0; dbStart < rows.length; dbStart += 50) {
-                const dbBatch = rows.slice(dbStart, dbStart + 50);
-                await db.insert(embeddings).values(dbBatch);
-            }
+            // Bulk insert all 100 rows at once for speed
+            console.log(`[Processor] 💾 Saving to database...`);
+            const dbStart = Date.now();
+            await db.insert(embeddings).values(rows);
+            console.log(`[Processor] ✅ Database sync complete (${Date.now() - dbStart}ms)`);
 
             processedSoFar += vectors.length;
 
@@ -236,14 +239,16 @@ async function processDocumentChunks(documentId: string, textContent: string) {
                 .where(eq(documents.id, documentId));
 
             const pct = Math.round((processedSoFar / totalChunks) * 100);
-            console.log(`[Processor] ✅ ${pct}% complete (${processedSoFar}/${totalChunks})`);
+            console.log(`[Processor] 📊 Progress: ${pct}% (${processedSoFar}/${totalChunks})`);
 
         } catch (e: any) {
-            console.error(`[Processor] Batch failed at chunk ${batchStart}: ${e.message}`);
-            // Don't abort entirely — continue with next batch
+            console.error(`[Processor] ❌ Batch ${batchNum} failed: ${e.message}`);
+            // If it's a critical error (not just rate limit), we might want to stop
+            if (e.message.includes('401') || e.message.includes('403')) break;
             continue;
         }
     }
 
-    console.log(`[Processor] Embedding done: ${processedSoFar}/${totalChunks} chunks stored.`);
+    const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[Processor] ✨ Indexing complete for ${documentId} in ${totalTime}s`);
 }
