@@ -9,25 +9,20 @@ export async function parsePdf(buffer: Buffer): Promise<string> {
     console.log(`[Parser] Parsing PDF (${sizeMB}MB)...`);
 
     try {
-        const pdf: any = await import('pdf-parse');
-        const pdfParse = pdf.default || pdf;
+        const { PDFParse } = await import('pdf-parse');
         
-        if (typeof pdfParse !== 'function') {
-            console.error("[Parser] pdf-parse is not a function:", typeof pdfParse);
-            throw new Error("PDF parser initialization failed");
-        }
+        // pdf-parse v2 requires Uint8Array, not Buffer
+        const uint8 = new Uint8Array(buffer);
+        const parser = new PDFParse(uint8);
+        await parser.load();
+        const text = await parser.getText();
         
-        // pdf-parse options: limit pages for very large files to prevent OOM
-        const options: any = {};
-        
-        const data = await pdfParse(buffer, options);
-        
-        if (!data.text || data.text.trim().length < 10) {
-            throw new Error(`PDF parsed but content too short (${data.text?.length || 0} chars). May be image-only.`);
+        if (!text || text.trim().length < 10) {
+            throw new Error(`PDF parsed but content too short (${text?.length || 0} chars). May be image-only.`);
         }
 
-        console.log(`[Parser] PDF parsed: ${data.numpages} pages, ${data.text.length} chars`);
-        return data.text;
+        console.log(`[Parser] PDF parsed: ${text.length} chars`);
+        return text;
     } catch (err: any) {
         console.error(`[Parser] PDF parse error:`, err.message);
         throw err;
@@ -64,7 +59,6 @@ export async function parseImage(buffer: Buffer, mimeType: string): Promise<stri
     const sizeMB = (buffer.length / 1024 / 1024).toFixed(1);
     console.log(`[Parser] Processing image (${sizeMB}MB, ${mimeType})...`);
 
-    // Gemini has a ~20MB inline data limit; reject oversized images early
     if (buffer.length > 20 * 1024 * 1024) {
         throw new Error(`Image too large (${sizeMB}MB). Maximum supported size is 20MB.`);
     }
@@ -116,9 +110,8 @@ export async function parseImage(buffer: Buffer, mimeType: string): Promise<stri
         }
     }
 
-    // If all retries fail, return a descriptive placeholder instead of base64 blob
     console.error(`[Parser] All image OCR attempts failed: ${lastError?.message}`);
-    return `[Image: ${mimeType}, ${sizeMB}MB] — AI vision analysis failed after ${maxRetries} attempts. Error: ${lastError?.message || 'Unknown'}. Please re-upload when API quota resets.`;
+    return `[Image: ${mimeType}, ${sizeMB}MB] — AI vision analysis failed. Error: ${lastError?.message || 'Unknown'}. Please re-upload when API quota resets.`;
 }
 
 export async function parseText(buffer: Buffer): Promise<string> {
