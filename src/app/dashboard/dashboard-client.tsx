@@ -53,33 +53,36 @@ export function UserDashboardClient({
             </div>
 
             {/* LAYER 2: HTML UI Overlay */}
-            <div className="absolute inset-0 z-10 pointer-events-none">
+            <div className="absolute inset-0 z-10 pointer-events-none overflow-y-auto md:overflow-hidden">
                 
-                {/* Header: Top Left */}
-                <div className="absolute top-8 left-8 flex items-center gap-4 pointer-events-auto">
-                    <div className="w-12 h-12 flex items-center justify-center relative">
-                        <img 
-                            src="/login_logo.png" 
-                            alt="Cortex Logo" 
-                            className="w-full h-full object-contain scale-150"
-                            style={{ mixBlendMode: 'screen' }}
-                        />
+                {/* Responsive Header */}
+                <header className="flex flex-col md:flex-row items-center justify-between p-6 md:p-8 gap-6 pointer-events-auto">
+                    {/* Brand Info */}
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center relative">
+                            <img 
+                                src="/login_logo.png" 
+                                alt="Cortex Logo" 
+                                className="w-full h-full object-contain scale-150"
+                                style={{ mixBlendMode: 'screen' }}
+                            />
+                        </div>
+                        <div>
+                            <h1 className="text-xl md:text-2xl font-black tracking-widest text-white leading-tight" style={{ textShadow: '0 0 10px rgba(255,255,255,0.3)' }}>CORTEX</h1>
+                            <p className="text-[8px] md:text-[9px] font-bold uppercase tracking-[0.4em] text-[#e100ff]">YOUR STUDY PARTNER</p>
+                        </div>
                     </div>
-                    <div>
-                        <h1 className="text-2xl font-black tracking-widest text-white leading-tight" style={{ textShadow: '0 0 10px rgba(255,255,255,0.3)' }}>CORTEX</h1>
-                        <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-[#e100ff]">YOUR STUDY PARTNER</p>
-                    </div>
-                </div>
 
-                {/* Header: Top Right */}
-                <div className="absolute top-8 right-8 flex items-center gap-6 pointer-events-auto bg-black/40 px-6 py-3 rounded-full border border-white/10 backdrop-blur-md">
-                    <div className="text-right">
-                        <p className="text-sm font-black uppercase tracking-widest text-white">{displayName}</p>
-                        <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#e100ff]">ACTIVE VOYAGER</p>
+                    {/* User Info */}
+                    <div className="flex items-center gap-4 md:gap-6 bg-black/40 px-4 md:px-6 py-2 md:py-3 rounded-full border border-white/10 backdrop-blur-md">
+                        <div className="text-right">
+                            <p className="text-xs md:text-sm font-black uppercase tracking-widest text-white truncate max-w-[120px]">{displayName}</p>
+                            <p className="text-[8px] md:text-[9px] font-bold uppercase tracking-[0.3em] text-[#e100ff]">ACTIVE VOYAGER</p>
+                        </div>
+                        <div className="w-[1px] h-6 bg-white/20"></div>
+                        <SignOutButton />
                     </div>
-                    <div className="w-[1px] h-6 bg-white/20"></div>
-                    <SignOutButton />
-                </div>
+                </header>
 
                 {/* Floating Cards */}
                 <FloatingCards />
