@@ -88,8 +88,7 @@ export async function processUpload(documentId: string, buffer: Buffer, fileType
 
         await processDocumentChunks(documentId, textContent);
 
-        console.log(`[Processor] ✅ Complete: ${originalName}`);
-        await updateDocStatus(documentId, 'completed');
+        console.log(`[Processor] ✅ Done: ${originalName}`);
 
     } catch (error: any) {
         console.error(`[Processor] ❌ Failed ${documentId}:`, error.message);
@@ -168,8 +167,7 @@ export async function processUrl(documentId: string, url: string) {
         await updateDocStatus(documentId, 'indexing');
 
         await processDocumentChunks(documentId, textContent);
-
-        await updateDocStatus(documentId, 'completed');
+        console.log(`[Processor] ✅ URL Done: ${url}`);
 
     } catch (error: any) {
         console.error(`[Processor] URL failed ${documentId}:`, error.message);
@@ -265,4 +263,7 @@ async function processDocumentChunks(documentId: string, textContent: string) {
 
     const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[Processor] ✨ Indexing complete for ${documentId} in ${totalTime}s`);
+    
+    // Final status update with more retries
+    await updateDocStatus(documentId, 'completed', 5);
 }
