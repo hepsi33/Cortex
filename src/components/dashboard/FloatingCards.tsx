@@ -14,7 +14,6 @@ export default function FloatingCards() {
     };
 
     return (
-    return (
         <>
             {/* Desktop Orbital View */}
             <div className="hidden md:flex absolute inset-0 items-center justify-center pointer-events-none overflow-hidden pause-on-hover" style={{ top: '15%' }}>
