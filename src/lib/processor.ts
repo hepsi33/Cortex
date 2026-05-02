@@ -40,12 +40,24 @@ async function batchEmbed(texts: string[], maxRetries = 4): Promise<number[][]> 
     throw new Error('Unreachable');
 }
 
+async function updateDocStatus(documentId: string, status: 'pending' | 'indexing' | 'completed' | 'failed', maxRetries = 3) {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            await db.update(documents)
+                .set({ status })
+                .where(eq(documents.id, documentId));
+            return;
+        } catch (e: any) {
+            console.warn(`[Processor] Status update retry ${i+1}/${maxRetries} for ${documentId}: ${e.message}`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+    }
+}
+
 export async function processUpload(documentId: string, buffer: Buffer, fileType: string, originalName: string) {
     console.log(`[Processor] Starting: ${originalName} (${(buffer.length / 1024 / 1024).toFixed(1)}MB)`);
     try {
-        await db.update(documents)
-            .set({ status: 'indexing' })
-            .where(eq(documents.id, documentId));
+        await updateDocStatus(documentId, 'indexing');
 
         let textContent = '';
 
@@ -77,15 +89,11 @@ export async function processUpload(documentId: string, buffer: Buffer, fileType
         await processDocumentChunks(documentId, textContent);
 
         console.log(`[Processor] ✅ Complete: ${originalName}`);
-        await db.update(documents)
-            .set({ status: 'completed' })
-            .where(eq(documents.id, documentId));
+        await updateDocStatus(documentId, 'completed');
 
     } catch (error: any) {
         console.error(`[Processor] ❌ Failed ${documentId}:`, error.message);
-        await db.update(documents)
-            .set({ status: 'failed' })
-            .where(eq(documents.id, documentId));
+        await updateDocStatus(documentId, 'failed');
     }
 }
 
@@ -154,20 +162,18 @@ export async function processUrl(documentId: string, url: string) {
         }
 
         await db.update(documents)
-            .set({ content: textContent, name: title, status: 'indexing' })
+            .set({ content: textContent, name: title })
             .where(eq(documents.id, documentId));
+
+        await updateDocStatus(documentId, 'indexing');
 
         await processDocumentChunks(documentId, textContent);
 
-        await db.update(documents)
-            .set({ status: 'completed' })
-            .where(eq(documents.id, documentId));
+        await updateDocStatus(documentId, 'completed');
 
     } catch (error: any) {
         console.error(`[Processor] URL failed ${documentId}:`, error.message);
-        await db.update(documents)
-            .set({ status: 'failed' })
-            .where(eq(documents.id, documentId));
+        await updateDocStatus(documentId, 'failed');
     }
 }
 
@@ -234,9 +240,17 @@ async function processDocumentChunks(documentId: string, textContent: string) {
 
             processedSoFar += vectors.length;
 
-            await db.update(documents)
-                .set({ processedCount: processedSoFar })
-                .where(eq(documents.id, documentId));
+            for (let i = 0; i < 3; i++) {
+                try {
+                    await db.update(documents)
+                        .set({ processedCount: processedSoFar })
+                        .where(eq(documents.id, documentId));
+                    break;
+                } catch (e: any) {
+                    console.warn(`[Processor] Progress update retry ${i+1}/3 for ${documentId}: ${e.message}`);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+            }
 
             const pct = Math.round((processedSoFar / totalChunks) * 100);
             console.log(`[Processor] 📊 Progress: ${pct}% (${processedSoFar}/${totalChunks})`);
