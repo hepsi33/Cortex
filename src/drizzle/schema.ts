@@ -27,6 +27,7 @@ export const documents = pgTable('documents', {
     fileType: text('file_type'),
     status: text('status', { enum: ['pending', 'indexing', 'completed', 'failed'] }).default('pending').notNull(),
     chunkCount: integer('chunk_count').default(0).notNull(),
+    processedCount: integer('processed_count').default(0).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

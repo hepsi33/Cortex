@@ -1,7 +1,7 @@
 import "dotenv/config";
 
 import { db } from "../lib/db";
-import { users } from "./schema";
+import { profiles } from "./schema";
 import { hash } from "bcryptjs";
 import { eq } from "drizzle-orm";
 
@@ -33,8 +33,6 @@ async function main() {
     if (!adminEmail) adminEmail = "test@test.com";
 
     if (!adminPassword) {
-        // Don't log "No password provided", just ask if interactive, else default
-        // But we can't easily detect interactive vs piped here without tty checks, sticking to simple prompt
         if (process.stdin.isTTY) {
             adminPassword = await askQuestion("Enter Admin Password (default: Test123@123): ");
         }
@@ -44,11 +42,11 @@ async function main() {
 
     console.log(`Seeding admin user: ${adminEmail}`);
 
-    const existingUsers = await db.select().from(users).where(eq(users.email, adminEmail));
+    const existingUsers = await db.select().from(profiles).where(eq(profiles.email, adminEmail));
 
     if (existingUsers.length === 0) {
         const passwordHash = await hash(adminPassword, 10);
-        await db.insert(users).values({
+        await db.insert(profiles).values({
             name: "Admin User",
             email: adminEmail,
             password: passwordHash,
@@ -57,11 +55,10 @@ async function main() {
         });
         console.log("Admin user seeded successfully");
     } else {
-        // Update password for existing user
         const passwordHash = await hash(adminPassword, 10);
-        await db.update(users)
+        await db.update(profiles)
             .set({ password: passwordHash })
-            .where(eq(users.email, adminEmail));
+            .where(eq(profiles.email, adminEmail));
         console.log("Admin user password updated successfully");
     }
 }

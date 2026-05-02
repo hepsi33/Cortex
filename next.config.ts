@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['pdf-parse', 'youtubei.js'],
   experimental: {
     serverActions: {
-      bodySizeLimit: '100mb',
+      bodySizeLimit: '500mb',
     },
   },
 };

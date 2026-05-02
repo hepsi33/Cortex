@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { users } from "@/drizzle/schema";
+import { profiles } from "@/drizzle/schema";
 import { hash } from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -16,8 +16,8 @@ export async function POST(req: Request) {
         const body = await req.json();
         const { name, email, password } = signupSchema.parse(body);
 
-        const existingUser = await db.query.users.findFirst({
-            where: eq(users.email, email),
+        const existingUser = await db.query.profiles.findFirst({
+            where: eq(profiles.email, email),
         });
 
         if (existingUser) {
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 
         const hashedPassword = await hash(password, 10);
 
-        await db.insert(users).values({
+        await db.insert(profiles).values({
             name,
             email,
             password: hashedPassword,
