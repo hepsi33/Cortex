@@ -59,6 +59,7 @@ export default function PracticePage() {
     const [isFlipped, setIsFlipped] = useState(false);
     const [cardCount, setCardCount] = useState([10]);
     const [topic, setTopic] = useState('');
+    const [sessionMode, setSessionMode] = useState<'quiz' | 'flashcards' | null>(null);
 
     useEffect(() => {
         fetchWorkspaces();
@@ -94,6 +95,7 @@ export default function PracticePage() {
                 setQuizQuestions(data);
                 setCurrentQuestionIndex(0);
                 setScore({ correct: 0, wrong: 0 });
+                setSessionMode('quiz');
                 setView('quiz');
             }
         } catch (err) {
@@ -120,6 +122,7 @@ export default function PracticePage() {
                 setFlashcards(data);
                 setCurrentCardIndex(0);
                 setIsFlipped(false);
+                setSessionMode('flashcards');
                 setView('flashcards');
             }
         } catch (err) {
@@ -561,16 +564,23 @@ export default function PracticePage() {
                                 <p className="text-white/20 text-lg font-medium italic">Neural pathways strengthened. Information encoded.</p>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-6 max-w-lg mx-auto">
-                                <div className="human-card p-10 bg-[#0a0a0c]/60 backdrop-blur-3xl border border-emerald-500/10">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2">Mastered</p>
-                                    <p className="text-4xl font-black text-emerald-500 italic">{view === 'flashcards' ? flashcards.length : score.correct}</p>
+                            {sessionMode === 'quiz' ? (
+                                <div className="grid grid-cols-2 gap-6 max-w-lg mx-auto">
+                                    <div className="human-card p-10 bg-[#0a0a0c]/60 backdrop-blur-3xl border border-emerald-500/10">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2">Mastered</p>
+                                        <p className="text-4xl font-black text-emerald-500 italic">{score.correct}</p>
+                                    </div>
+                                    <div className="human-card p-10 bg-[#0a0a0c]/60 backdrop-blur-3xl border border-rose-500/10">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2">Failed</p>
+                                        <p className="text-4xl font-black text-rose-500 italic">{score.wrong}</p>
+                                    </div>
                                 </div>
-                                <div className="human-card p-10 bg-[#0a0a0c]/60 backdrop-blur-3xl border border-rose-500/10">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2">Failed</p>
-                                    <p className="text-4xl font-black text-rose-500 italic">{view === 'flashcards' ? 0 : score.wrong}</p>
+                            ) : (
+                                <div className="human-card p-10 max-w-sm mx-auto bg-[#0a0a0c]/60 backdrop-blur-3xl border border-[#00d4ff]/10">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-2">Cards Reviewed</p>
+                                    <p className="text-5xl font-black text-[#00d4ff] italic">{flashcards.length}</p>
                                 </div>
-                            </div>
+                            )}
 
                             <Button 
                                 onClick={() => setView('workspaces')}
