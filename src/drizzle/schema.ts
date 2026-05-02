@@ -1,7 +1,7 @@
 import { pgTable, text, timestamp, uuid, vector, integer, jsonb, boolean } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
-export const users = pgTable('users', {
+export const profiles = pgTable('profiles', {
     id: uuid('id').defaultRandom().primaryKey(),
     name: text('name').notNull(),
     email: text('email').notNull().unique(),
@@ -13,14 +13,14 @@ export const users = pgTable('users', {
 
 export const workspaces = pgTable('workspaces', {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: uuid('user_id').references(() => profiles.id, { onDelete: 'cascade' }).notNull(),
     name: text('name').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 export const documents = pgTable('documents', {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: uuid('user_id').references(() => profiles.id, { onDelete: 'cascade' }).notNull(),
     workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'set null' }),
     name: text('name').notNull(),
     content: text('content'),
@@ -40,7 +40,7 @@ export const embeddings = pgTable('embeddings', {
 
 export const chats = pgTable('chats', {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    userId: uuid('user_id').references(() => profiles.id, { onDelete: 'cascade' }).notNull(),
     documentId: uuid('document_id').references(() => documents.id, { onDelete: 'cascade' }),
     workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
@@ -57,18 +57,18 @@ export const messages = pgTable('messages', {
 
 // Relations
 export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
-    user: one(users, {
+    user: one(profiles, {
         fields: [workspaces.userId],
-        references: [users.id],
+        references: [profiles.id],
     }),
     documents: many(documents),
     chats: many(chats),
 }));
 
 export const documentsRelations = relations(documents, ({ one, many }) => ({
-    user: one(users, {
+    user: one(profiles, {
         fields: [documents.userId],
-        references: [users.id],
+        references: [profiles.id],
     }),
     workspace: one(workspaces, {
         fields: [documents.workspaceId],
@@ -85,9 +85,9 @@ export const embeddingsRelations = relations(embeddings, ({ one }) => ({
 }));
 
 export const chatsRelations = relations(chats, ({ one, many }) => ({
-    user: one(users, {
+    user: one(profiles, {
         fields: [chats.userId],
-        references: [users.id],
+        references: [profiles.id],
     }),
     workspace: one(workspaces, {
         fields: [chats.workspaceId],
@@ -108,8 +108,8 @@ export const messagesRelations = relations(messages, ({ one }) => ({
 }));
 
 
-export type User = typeof users.$inferSelect;
-export type NewUser = typeof users.$inferInsert;
+export type User = typeof profiles.$inferSelect;
+export type NewUser = typeof profiles.$inferInsert;
 export type Workspace = typeof workspaces.$inferSelect;
 export type NewWorkspace = typeof workspaces.$inferInsert;
 export type Document = typeof documents.$inferSelect;

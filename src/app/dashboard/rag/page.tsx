@@ -60,7 +60,7 @@ export default function KnowledgeWorkspacePage() {
                 </div>
 
                 {/* Document List */}
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1 min-h-0">
                     <DocumentManager workspaceId={currentWorkspace?.id || null} />
                 </div>
             </div>

@@ -1,232 +1,226 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, Loader2, FileText, Globe } from 'lucide-react';
+import { useState, useEffect, useRef } from "react";
+import { Send, Loader2, Sparkles, User, Bot, Globe, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
 
 interface Message {
-    id: string;
     role: 'user' | 'assistant';
     content: string;
 }
 
 interface ChatInterfaceProps {
     workspaceId: string | null;
+    chatId?: string;
+    mode?: 'strict' | 'learning' | 'research';
 }
 
-export function ChatInterface({ workspaceId }: ChatInterfaceProps) {
+export function ChatInterface({ workspaceId, chatId, mode = 'strict' }: ChatInterfaceProps) {
     const [messages, setMessages] = useState<Message[]>([]);
-    const [input, setInput] = useState('');
+    const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
-    const [chatId, setChatId] = useState<string | null>(null);
     const [searchWeb, setSearchWeb] = useState(false);
+    const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+    const scrollRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const [activeCitation, setActiveCitation] = useState<number | null>(null);
-
-    // Reset chat when workspace changes
-    useEffect(() => {
-        setMessages([]);
-        setChatId(null);
-        setInput('');
-    }, [workspaceId]);
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
 
-    const handleSend = async () => {
-        if (!input.trim() || loading || !workspaceId) return;
-
-        const userMsg: Message = {
-            id: Date.now().toString(),
-            role: 'user',
-            content: input.trim(),
+    useEffect(() => {
+        if (chatId) fetchMessages();
+        
+        const handleDocSelection = (e: any) => {
+            setSelectedDocIds(e.detail || []);
+        };
+        const handleChatAction = (e: any) => {
+            const prompt = e.detail;
+            if (prompt) sendMessage(prompt);
         };
 
-        setMessages((prev) => [...prev, userMsg]);
-        setInput('');
+        window.addEventListener('selected-docs-changed', handleDocSelection);
+        window.addEventListener('trigger-chat-action', handleChatAction);
+        return () => {
+            window.removeEventListener('selected-docs-changed', handleDocSelection);
+            window.removeEventListener('trigger-chat-action', handleChatAction);
+        };
+    }, [chatId, workspaceId, selectedDocIds]);
+
+    const fetchMessages = async () => {
+        try {
+            const res = await fetch(`/api/chat/${chatId}/messages`);
+            const data = await res.json();
+            if (Array.isArray(data)) setMessages(data);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const sendMessage = async (content: string) => {
+        if (!content.trim() || loading) return;
+
+        const userMessage: Message = { role: 'user', content };
+        setMessages(prev => [...prev, userMessage]);
         setLoading(true);
 
         try {
-            const res = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            const res = await fetch("/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    message: userMsg.content,
-                    chatId: chatId,
-                    workspaceId: workspaceId,
-                    searchWeb: searchWeb
+                    message: content,
+                    chatId,
+                    workspaceId,
+                    searchWeb,
+                    mode,
+                    selectedDocIds
                 }),
             });
 
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({}));
-                throw new Error(errorData.error || `Failed to send message: ${res.statusText}`);
-            }
+            if (!res.ok) throw new Error("Failed to send message");
 
-            const newChatId = res.headers.get('X-Chat-Id');
-            if (newChatId && !chatId) {
-                setChatId(newChatId);
-            }
-
-            if (!res.body) return;
-            const reader = res.body.getReader();
+            const reader = res.body?.getReader();
             const decoder = new TextDecoder();
-            let assistantMsg: Message = {
-                id: (Date.now() + 1).toString(),
-                role: 'assistant',
-                content: '',
-            };
+            let assistantContent = "";
 
-            setMessages((prev) => [...prev, assistantMsg]);
+            setMessages(prev => [...prev, { role: 'assistant', content: "" }]);
 
-            while (true) {
+            while (reader) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                const text = decoder.decode(value);
-                assistantMsg.content += text;
-
-                setMessages((prev) => {
-                    const newMsgs = [...prev];
-                    newMsgs[newMsgs.length - 1] = { ...assistantMsg };
-                    return newMsgs;
+                const chunk = decoder.decode(value);
+                assistantContent += chunk;
+                setMessages(prev => {
+                    const last = prev[prev.length - 1];
+                    return [...prev.slice(0, -1), { ...last, content: assistantContent }];
                 });
             }
-
-        } catch (err) {
-            console.error(err);
-            setMessages((prev) => [...prev, {
-                id: Date.now().toString(),
-                role: 'assistant',
-                content: err instanceof Error ? `Error: ${err.message}` : 'Sorry, I encountered an error. Please try again.',
-            }]);
+        } catch (error) {
+            console.error(error);
         } finally {
             setLoading(false);
         }
     };
 
-    const renderContent = (content: string) => {
-        const parts = content.split(/(\[\d+\])/g);
-
-        return parts.map((part, index) => {
-            if (part.match(/^\[\d+\]$/)) {
-                return (
-                    <button
-                        key={index}
-                        onClick={() => setActiveCitation(parseInt(part.replace(/[\[\]]/g, '')))}
-                        className="text-blue-600 hover:text-blue-700 font-semibold mx-0.5 inline-flex items-center text-xs bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200"
-                        title="View Source"
-                    >
-                        {part}
-                    </button>
-                );
-            }
-            return <span key={index}>{part}</span>;
-        });
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        sendMessage(input);
+        setInput("");
     };
 
     return (
-        <div className="flex flex-col h-full bg-[#0b0f19] relative">
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3 sm:space-y-4 pb-28 sm:pb-24 custom-scrollbar">
-                {messages.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                        <Bot className="w-12 h-12 mb-3 opacity-30" />
-                        <p className="text-sm">Ask a question about this document</p>
-                    </div>
-                )}
-
-                {messages.map((msg) => (
-                    <div
-                        key={msg.id}
-                        className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
+        <div className="flex flex-col h-full bg-[#0a0a0c]/20 backdrop-blur-3xl rounded-[2.5rem] border border-white/5 overflow-hidden shadow-4xl relative">
+            {/* Messages Area */}
+            <ScrollArea className="flex-1 px-8 py-10">
+                <div className="space-y-12 pb-10">
+                    {messages.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
+                            <div className="w-20 h-20 bg-white/5 rounded-[2rem] flex items-center justify-center animate-pulse">
+                                <Sparkles className="w-10 h-10 text-white/10" />
+                            </div>
+                            <div className="space-y-2">
+                                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 italic">Awaiting Inquiry</p>
+                                <p className="text-sm text-white/10 italic max-w-[280px] leading-relaxed">
+                                    Your intelligence repository is synced. Ask a question to begin synthesis.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                    {messages.map((msg, i) => (
                         <div
-                            className={`max-w-[90%] sm:max-w-[80%] rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm leading-relaxed ${msg.role === 'user'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-[#1f2937] text-gray-200 border border-gray-800'
-                                }`}
-                        >
-                            {msg.role === 'user' ? (
-                                msg.content
-                            ) : (
-                                <div className="whitespace-pre-wrap">{renderContent(msg.content)}</div>
+                            key={i}
+                            className={cn(
+                                "flex gap-6",
+                                msg.role === 'user' ? "flex-row-reverse" : "flex-row"
                             )}
+                        >
+                            <div className={cn(
+                                "w-10 h-10 rounded-2xl shrink-0 flex items-center justify-center border transition-all duration-700",
+                                msg.role === 'user' 
+                                    ? "bg-white/5 border-white/10" 
+                                    : "bg-[#e100ff]/10 border-[#e100ff]/20 shadow-[0_0_20px_rgba(225,0,255,0.1)]"
+                            )}>
+                                {msg.role === 'user' ? <User className="w-5 h-5 text-white/40" /> : <Bot className="w-5 h-5 text-[#e100ff]" />}
+                            </div>
+                            <div className={cn(
+                                "max-w-[85%] p-4 px-6 rounded-3xl text-sm leading-relaxed relative group transition-all duration-700 break-words",
+                                msg.role === 'user' 
+                                    ? "bg-white text-black font-medium rounded-tr-none shadow-2xl" 
+                                    : "bg-white/[0.03] text-white/80 border border-white/5 rounded-tl-none backdrop-blur-xl"
+                            )}>
+                                <div className="markdown-content whitespace-pre-wrap">
+                                    <ReactMarkdown>
+                                        {msg.content}
+                                    </ReactMarkdown>
+                                </div>
+                                <div className={cn(
+                                    "absolute -bottom-6 text-[8px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity",
+                                    msg.role === 'user' ? "right-4 text-white/20" : "left-4 text-[#e100ff]/40"
+                                )}>
+                                    {msg.role === 'user' ? 'Transmission Sent' : 'Synthesis Complete'}
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                ))}
-
-                {loading && (
-                    <div className="flex justify-start">
-                        <div className="bg-[#1f2937] rounded-xl px-4 py-3 border border-gray-800">
-                            <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                        </div>
-                    </div>
-                )}
-                <div ref={messagesEndRef} />
-            </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                </div>
+            </ScrollArea>
 
             {/* Input Area */}
-            <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 bg-[#0b0f19] border-t border-gray-800">
-                <form
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        handleSend();
-                    }}
-                    className="flex flex-col gap-2 max-w-3xl mx-auto"
-                >
-                    <div className="flex gap-2">
-                        <input
+            <div className="p-8 border-t border-white/5 bg-[#0a0a0c]/60 backdrop-blur-3xl">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSearchWeb(!searchWeb)}
+                                className={cn(
+                                    "h-10 rounded-xl px-5 text-[10px] font-black uppercase tracking-widest transition-all shadow-xl",
+                                    searchWeb ? "bg-blue-500 text-white" : "bg-white/5 text-white/20 border border-white/5"
+                                )}
+                            >
+                                <Globe className="w-3.5 h-3.5 mr-2.5" />
+                                Search Web
+                            </Button>
+                            {selectedDocIds.length > 0 && (
+                                <div className="flex items-center gap-2.5 px-5 h-10 bg-amber-400/10 border border-amber-400/20 rounded-xl">
+                                    <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                                    <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest">{selectedDocIds.length} Linked</span>
+                                </div>
+                            )}
+                        </div>
+                        <p className="text-[8px] font-black text-white/10 uppercase tracking-[0.2em] italic">Neural Link Active</p>
+                    </div>
+                    <div className="flex gap-4">
+                        <Input
+                            placeholder={loading ? "Synthesizing Knowledge..." : "Query your intelligence repository..."}
+                            className="h-18 bg-white/5 border-white/5 rounded-[1.5rem] px-8 text-sm focus:border-[#e100ff]/50 transition-all placeholder:text-white/10"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder={workspaceId ? "Ask a question..." : "Select a workspace to chat"}
-                            className="flex-1 bg-[#0f172a] border border-gray-700 text-white placeholder:text-gray-500 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={loading || !workspaceId}
+                            disabled={loading}
                         />
-                        <button
+                        <Button
                             type="submit"
-                            disabled={loading || !input.trim() || !workspaceId}
-                            className="bg-blue-600 hover:bg-blue-700 disabled:bg-[#1f2937] disabled:text-gray-500 text-white rounded-lg px-4 py-2.5 transition-colors"
+                            size="icon"
+                            disabled={loading || !input.trim()}
+                            className="h-18 w-18 bg-white text-black hover:bg-[#e100ff] hover:text-white rounded-[1.5rem] shrink-0 shadow-3xl transition-all"
                         >
-                            <Send className="w-4 h-4" />
-                        </button>
-                    </div>
-
-                    <div className="flex items-center gap-2 px-1">
-                        <label className={`flex items-center gap-2 text-xs cursor-pointer ${searchWeb ? 'text-blue-500 font-medium' : 'text-gray-400 hover:text-gray-300'}`}>
-                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${searchWeb ? 'bg-blue-600 border-blue-600' : 'bg-[#1f2937] border-gray-600'}`}>
-                                {searchWeb && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
-                            </div>
-                            <input
-                                type="checkbox"
-                                className="hidden"
-                                checked={searchWeb}
-                                onChange={(e) => setSearchWeb(e.target.checked)}
-                            />
-                            <Globe className="w-3 h-3" />
-                            Search Web (Firecrawl)
-                        </label>
+                            {loading ? <Loader2 className="w-7 h-7 animate-spin" /> : <Send className="w-7 h-7" />}
+                        </Button>
                     </div>
                 </form>
             </div>
-
-            {/* Citation Popup */}
-            {activeCitation && (
-                <div className="absolute bottom-28 sm:bottom-24 left-3 right-3 sm:left-auto sm:right-4 sm:w-72 bg-[#1f2937] border border-gray-800 shadow-lg p-3 sm:p-4 rounded-xl text-sm z-10 text-gray-200">
-                    <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-semibold text-white flex items-center gap-1.5">
-                            <FileText className="w-3.5 h-3.5 text-blue-500" /> Source [{activeCitation}]
-                        </h4>
-                        <button onClick={() => setActiveCitation(null)} className="text-gray-400 hover:text-white text-lg">&times;</button>
-                    </div>
-                    <p className="text-gray-400 text-xs italic">
-                        Source content from the document chunk used to generate this answer.
-                    </p>
-                </div>
-            )}
         </div>
     );
 }

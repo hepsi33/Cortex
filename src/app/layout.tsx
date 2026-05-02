@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"; // Using Inter for classy look
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { auth } from "@/lib/auth";
+import TargetCursor from "@/components/ui/TargetCursor";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -23,7 +24,15 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} antialiased font-sans`}>
+      <head>
+        <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+      </head>
+      <body className={`${inter.variable} antialiased`} style={{ fontFamily: "'Orbitron', sans-serif" }}>
+        <TargetCursor 
+          spinDuration={2}
+          hideDefaultCursor={true}
+          parallaxOn={true}
+        />
         <Providers session={session}>{children}</Providers>
       </body>
     </html>

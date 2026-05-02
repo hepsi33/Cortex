@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { CheckCircle2, ShieldCheck, Zap, LayoutTemplate, ArrowRight } from "lucide-react";
+import { CheckCircle2, ShieldCheck, Zap, LayoutTemplate, ArrowRight, Brain, BookOpen, Clock, Youtube } from "lucide-react";
 import { NavButtons, HeroButtons } from "@/components/nav-buttons";
 import { Button } from "@/components/ui/button";
 
@@ -8,11 +8,19 @@ export const dynamic = "force-dynamic";
 
 export default function GetStartedPage() {
     return (
-        <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
+        <div className="min-h-screen bg-[#0A0A0B] flex flex-col text-white selection:bg-amber-400/30">
             {/* Header */}
-            <header className="px-4 md:px-6 h-16 flex items-center justify-between border-b border-white/10 bg-[#0a0a0a]/90 backdrop-blur-lg sticky top-0 z-50">
-                <Link href="/" className="font-bold text-xl tracking-tight text-white">
-                    Dashboard
+            <header className="px-10 h-20 flex items-center justify-between border-b border-white/5 bg-[#0A0A0B]/80 backdrop-blur-3xl sticky top-0 z-50">
+                <Link href="/" className="flex items-center gap-3 group">
+                    <div className="w-10 h-10 flex items-center justify-center overflow-hidden">
+                        <img 
+                            src="/login_logo.png" 
+                            alt="Cortex Logo" 
+                            className="w-full h-full object-contain scale-110"
+                            style={{ imageRendering: 'high-quality' as any }}
+                        />
+                    </div>
+                    <span className="text-2xl font-black tracking-tighter uppercase italic group-hover:text-amber-400 transition-colors">Cortex</span>
                 </Link>
                 <div className="flex items-center gap-2">
                     <NavButtons />
@@ -20,116 +28,111 @@ export default function GetStartedPage() {
             </header>
 
             {/* Hero Section */}
-            <main className="flex-1 container mx-auto px-4 py-8 md:py-20 flex flex-col items-center text-center">
-                <div className="max-w-3xl space-y-4 md:space-y-6">
-                    <h1 className="text-3xl sm:text-4xl md:text-6xl font-extrabold tracking-tight text-white">
-                        Everything you need to manage your <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">users</span>.
+            <main className="flex-1 container mx-auto px-6 py-20 flex flex-col items-center text-center">
+                <div className="max-w-4xl space-y-8">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-400/10 border border-amber-400/20 text-amber-400 text-[10px] font-black uppercase tracking-[0.4em] backdrop-blur-3xl mb-8">
+                        <Zap className="w-3 h-3 fill-current" />
+                        Next-Gen Learning
+                    </div>
+                    <h1 className="text-5xl md:text-8xl font-black tracking-tighter uppercase italic text-white leading-[0.9]">
+                        Master your <span className="text-amber-400">knowledge</span>.
                     </h1>
-                    <p className="text-base sm:text-lg md:text-xl text-gray-400 leading-relaxed px-4">
-                        A comprehensive dashboard solution featuring role-based access control,
-                        secure authentication, and a premium user interface designed for modern applications.
+                    <p className="text-lg md:text-xl text-white/40 font-medium italic leading-relaxed max-w-2xl mx-auto">
+                        Cortex is a precision-engineered learning hub designed for focused minds. 
+                        Transform videos, manage documents, and conquer exams with the ultimate study companion.
                     </p>
+                    <div className="pt-8">
+                        <HeroButtons />
+                    </div>
                 </div>
 
                 {/* Feature Grid */}
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-16 w-full max-w-6xl">
-                    <Card className="glass border-white/10 border-t-4 border-t-green-500">
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mt-32 w-full max-w-6xl">
+                    <Card className="human-card p-4 bg-[#121214] border border-white/5 group hover:border-amber-400/40 transition-all duration-700">
                         <CardHeader>
-                            <div className="p-3 w-12 h-12 rounded-lg bg-green-500/20 flex items-center justify-center mb-4">
-                                <ShieldCheck className="w-6 h-6 text-green-400" />
+                            <div className="p-4 w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center mb-6 group-hover:bg-amber-400 group-hover:text-black transition-all">
+                                <Clock className="w-8 h-8" />
                             </div>
-                            <CardTitle className="text-white">Secure Authentication</CardTitle>
-                            <CardDescription className="text-gray-400">Enterprise-grade security</CardDescription>
+                            <CardTitle className="text-2xl font-black italic uppercase tracking-tight text-white">Focus Zones</CardTitle>
+                            <CardDescription className="text-white/20 text-[10px] uppercase font-black tracking-widest mt-2">Zero Distraction</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm text-gray-500">
-                                Built with encryption, secure session management, and NextAuth.js to ensure your data stays safe.
+                            <p className="text-sm text-white/40 italic leading-relaxed">
+                                Curated ambient environments and pomodoro tracking designed to put your brain in a flow state.
                             </p>
                         </CardContent>
                     </Card>
 
-                    <Card className="glass border-white/10 border-t-4 border-t-blue-500">
+                    <Card className="human-card p-4 bg-[#121214] border border-white/5 group hover:border-amber-400/40 transition-all duration-700">
                         <CardHeader>
-                            <div className="p-3 w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center mb-4">
-                                <LayoutTemplate className="w-6 h-6 text-blue-400" />
+                            <div className="p-4 w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center mb-6 group-hover:bg-amber-400 group-hover:text-black transition-all">
+                                <Youtube className="w-8 h-8" />
                             </div>
-                            <CardTitle className="text-white">Role-Based Access</CardTitle>
-                            <CardDescription className="text-gray-400">Granular control</CardDescription>
+                            <CardTitle className="text-2xl font-black italic uppercase tracking-tight text-white">AI Mastery</CardTitle>
+                            <CardDescription className="text-white/20 text-[10px] uppercase font-black tracking-widest mt-2">Instant Insight</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm text-gray-500">
-                                Distinct Admin and User roles. Admins have full control over user approvals and management.
+                            <p className="text-sm text-white/40 italic leading-relaxed">
+                                Transform any lecture or tutorial into precision study notes and interactive visualizations instantly.
                             </p>
                         </CardContent>
                     </Card>
 
-                    <Card className="glass border-white/10 border-t-4 border-t-purple-500">
+                    <Card className="human-card p-4 bg-[#121214] border border-white/5 group hover:border-amber-400/40 transition-all duration-700">
                         <CardHeader>
-                            <div className="p-3 w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center mb-4">
-                                <Zap className="w-6 h-6 text-purple-400" />
+                            <div className="p-4 w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center mb-6 group-hover:bg-amber-400 group-hover:text-black transition-all">
+                                <Brain className="w-8 h-8" />
                             </div>
-                            <CardTitle className="text-white">Lightning Fast</CardTitle>
-                            <CardDescription className="text-gray-400">Optimized performance</CardDescription>
+                            <CardTitle className="text-2xl font-black italic uppercase tracking-tight text-white">Knowledge Vault</CardTitle>
+                            <CardDescription className="text-white/20 text-[10px] uppercase font-black tracking-widest mt-2">Neural Storage</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm text-gray-500">
-                                Powered by Next.js and Neon Database for instant page loads and real-time data fetching.
+                            <p className="text-sm text-white/40 italic leading-relaxed">
+                                Organize your documents and chat with your files using advanced context-aware RAG technology.
                             </p>
                         </CardContent>
                     </Card>
                 </div>
 
                 {/* How It Works */}
-                <div className="mt-20 max-w-4xl w-full">
-                    <h2 className="text-3xl font-bold mb-12 text-white text-center">How It Works</h2>
-                    <div className="space-y-6">
-                        <div className="flex items-start gap-4 bg-white/5 border border-white/10 rounded-xl p-6">
-                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500/20 text-blue-400 font-bold shrink-0">
-                                1
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-white text-lg">Sign Up</h3>
-                                <p className="text-gray-400 mt-1">Create an account with your email and password. Your data is encrypted and secure.</p>
-                            </div>
+                <div className="mt-40 max-w-4xl w-full space-y-16">
+                    <h2 className="text-4xl font-black italic tracking-tighter uppercase text-white">The Flow</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div className="relative p-10 bg-[#121214] border border-white/5 rounded-[2.5rem] text-left space-y-6">
+                            <div className="absolute top-8 right-8 text-5xl font-black italic text-white/5">01</div>
+                            <h3 className="text-xl font-black uppercase italic text-amber-400">Sync</h3>
+                            <p className="text-sm text-white/40 italic">Create your profile and initialize your personal learning hub.</p>
                         </div>
 
-                        <div className="flex items-start gap-4 bg-white/5 border border-white/10 rounded-xl p-6">
-                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-yellow-500/20 text-yellow-400 font-bold shrink-0">
-                                2
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-white text-lg">Admin Approval</h3>
-                                <p className="text-gray-400 mt-1">Your account is placed in a pending state until an administrator reviews and approves it.</p>
-                            </div>
+                        <div className="relative p-10 bg-[#121214] border border-white/5 rounded-[2.5rem] text-left space-y-6">
+                            <div className="absolute top-8 right-8 text-5xl font-black italic text-white/5">02</div>
+                            <h3 className="text-xl font-black uppercase italic text-amber-400">Forge</h3>
+                            <p className="text-sm text-white/40 italic">Upload documents or link videos to build your knowledge base.</p>
                         </div>
 
-                        <div className="flex items-start gap-4 bg-white/5 border border-white/10 rounded-xl p-6">
-                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-green-500/20 text-green-400 font-bold shrink-0">
-                                3
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-white text-lg">Access Dashboard</h3>
-                                <p className="text-gray-400 mt-1">Once approved, log in to access your personalized dashboard and features.</p>
-                            </div>
+                        <div className="relative p-10 bg-[#121214] border border-white/5 rounded-[2.5rem] text-left space-y-6">
+                            <div className="absolute top-8 right-8 text-5xl font-black italic text-white/5">03</div>
+                            <h3 className="text-xl font-black uppercase italic text-amber-400">Master</h3>
+                            <p className="text-sm text-white/40 italic">Engage with AI quizzes and flashcards to achieve total mastery.</p>
                         </div>
                     </div>
                 </div>
 
                 {/* CTA */}
-                <div className="mt-20 pb-10 max-w-2xl w-full">
-                    <Card className="bg-gradient-to-r from-blue-600 to-purple-600 border-0 shadow-xl">
-                        <CardHeader className="text-center">
-                            <CardTitle className="text-2xl text-white">Ready to get started?</CardTitle>
-                            <CardDescription className="text-blue-100">
-                                Join thousands of users managing their workflow with Dashboard.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex justify-center gap-4">
-                            <HeroButtons />
-                        </CardContent>
+                <div className="mt-40 mb-20 w-full max-w-4xl relative group">
+                    <div className="absolute inset-0 bg-amber-400/20 blur-3xl rounded-[3.5rem] group-hover:bg-amber-400/30 transition-all duration-700" />
+                    <Card className="human-card bg-amber-400 border-none p-16 text-center relative overflow-hidden">
+                        <div className="space-y-6">
+                            <h2 className="text-5xl font-black italic tracking-tighter uppercase text-black leading-none">Ready for deep focus?</h2>
+                            <p className="text-black/60 text-lg font-medium italic">
+                                Join the collective mind and elevate your learning capacity today.
+                            </p>
+                            <div className="flex justify-center gap-6 pt-10">
+                                <HeroButtons />
+                            </div>
+                        </div>
                     </Card>
                 </div>
-
             </main>
         </div>
     );

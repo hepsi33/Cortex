@@ -1,0 +1,43 @@
+@keyframes cardFloat {
+    0%, 100% { transform: perspective(1000px) rotateY(var(--rotY, 0deg)) rotateX(var(--rotX, 0deg)) translateY(0px); }
+    50% { transform: perspective(1000px) rotateY(var(--rotY, 0deg)) rotateX(var(--rotX, 0deg)) translateY(-12px); }
+}
+
+@keyframes cardFloatSimple {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-12px); }
+}
+
+@keyframes starSparkle {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+.animate-card-float {
+    animation: cardFloat 4s ease-in-out infinite;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.animate-card-float:hover {
+    transform: perspective(1000px) rotateY(var(--rotY, 0deg)) rotateX(var(--rotX, 0deg)) translateY(0px) scale(1.05);
+}
+
+.animate-star-sparkle {
+    animation: starSparkle 2s ease-in-out infinite;
+}
+
+@keyframes horizontalOrbit {
+    0% { transform: translateX(-150%) scale(0.75); opacity: 0.3; z-index: 0; }
+    25% { transform: translateX(-75%) scale(0.85); opacity: 0.6; z-index: 5; }
+    50% { transform: translateX(0%) scale(1); opacity: 1; z-index: 10; }
+    75% { transform: translateX(75%) scale(0.85); opacity: 0.6; z-index: 5; }
+    100% { transform: translateX(150%) scale(0.75); opacity: 0.3; z-index: 0; }
+}
+
+.animate-card-orbit {
+    animation: horizontalOrbit 20s linear infinite;
+}
+
+.pause-on-hover:hover .animate-card-orbit {
+    animation-play-state: paused !important;
+}

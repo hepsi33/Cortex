@@ -34,7 +34,7 @@ export async function POST(req: Request) {
             email,
             password: hashedPassword,
             role: "user",
-            status: "pending",
+            status: "approved",
         });
 
         return NextResponse.json(

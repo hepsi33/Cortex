@@ -23,34 +23,38 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { message, chatId, workspaceId, searchWeb: shouldSearchWeb } = await req.json();
+        const body = await req.json();
+        const { message, chatId, workspaceId, searchWeb: shouldSearchWeb, mode: requestMode, selectedDocIds } = body;
 
         if (!message) {
             return NextResponse.json({ error: 'Message is required' }, { status: 400 });
         }
 
-        let currentChatId = chatId;
+        const isGuest = session.user.id.startsWith("guest_");
+        let currentChatId = chatId || (isGuest ? "guest-chat" : null);
 
-        // Create chat if not exists
-        if (!currentChatId) {
-            if (!workspaceId) {
-                return NextResponse.json({ error: 'Workspace ID required for new chat' }, { status: 400 });
+        if (!isGuest) {
+            // Create chat if not exists
+            if (!currentChatId) {
+                if (!workspaceId) {
+                    return NextResponse.json({ error: 'Workspace ID required for new chat' }, { status: 400 });
+                }
+
+                const [newChat] = await db.insert(chats).values({
+                    userId: session.user.id,
+                    workspaceId: workspaceId,
+                    title: message.substring(0, 50) + '...',
+                }).returning();
+                currentChatId = newChat.id;
             }
 
-            const [newChat] = await db.insert(chats).values({
-                userId: session.user.id,
-                workspaceId: workspaceId,
-                title: message.substring(0, 50) + '...',
-            }).returning();
-            currentChatId = newChat.id;
+            // Save user message
+            await db.insert(messages).values({
+                chatId: currentChatId,
+                role: 'user',
+                content: message,
+            });
         }
-
-        // Save user message
-        await db.insert(messages).values({
-            chatId: currentChatId,
-            role: 'user',
-            content: message,
-        });
 
         // 1. Generate embedding for query
         let queryVector;
@@ -68,29 +72,13 @@ export async function POST(req: NextRequest) {
         let contextText = '';
 
         // Strategy A: Workspace Search
-        if (workspaceId) {
-            // ... (keep existing workspace search logic)
-            // For brevity in this diff, assuming the workspace search logic is unchanged 
-            // but for safety in `replace_file_content` I should include strictly enough context or use `multi_replace` 
-            // if I were skipping lines. Since I can't skip lines easily without `multi_replace`, 
-            // I will assume the user wants me to be surgical.
-            // Actually, I'll just wrap the Firecrawl call since that's a likely candidate.
-        }
-
-        // ... (skipping workspace search detail in this description, but in code I must be precise)
-
-        // Let's use `multi_replace` or just target the specific blocks.
-        // I will target the Firecrawl block specifically.
-
-
-        // 2. Retrieval Strategy (Variables already declared above)
-        // (No redeclaration needed)
-
-        // Strategy A: Workspace Search
-        if (workspaceId) {
+        if (workspaceId && workspaceId !== "guest-workspace") {
             // Find docs in workspace
             const workspaceDocs = await db.query.documents.findMany({
-                where: eq(documents.workspaceId, workspaceId),
+                where: and(
+                    eq(documents.workspaceId, workspaceId),
+                    selectedDocIds && selectedDocIds.length > 0 ? inArray(documents.id, selectedDocIds) : undefined
+                ),
                 columns: { id: true, name: true }
             });
 
@@ -114,7 +102,7 @@ export async function POST(req: NextRequest) {
                 const bestMatch = relevantChunks[0]?.dist || 1;
 
                 // Strategy B: Global Fallback
-                if (bestMatch > 0.75) {
+                if (bestMatch > 0.75 && !isGuest) {
                     console.log("Workspace match poor, trying global search...");
                     const globalChunks = await db.select({
                         content: embeddings.content,
@@ -152,6 +140,10 @@ export async function POST(req: NextRequest) {
             contextText += docContext;
         }
 
+        if (isGuest && !contextText) {
+            contextText = "The user is exploring as a Guest. Provide helpful information about study techniques and focus if they ask.";
+        }
+
         // Strategy C: Web Search (Firecrawl Deep Research)
         if (shouldSearchWeb) {
             console.log("Performing Deep Research...");
@@ -175,50 +167,59 @@ export async function POST(req: NextRequest) {
 
 
         // 4. Construct Prompt (adapts based on mode)
+        const mode = requestMode || (shouldSearchWeb ? 'research' : 'strict');
         let systemPrompt: string;
 
-        if (shouldSearchWeb) {
-            // DEEP RESEARCH MODE: Synthesize documents + web sources
-            systemPrompt = `You are a helpful AI Knowledge Assistant.
-Your goal is to provide a comprehensive and unified answer to the user's question by synthesizing information from the provided context.
+        if (mode === 'research') {
+            systemPrompt = `You are an advanced AI Tutor and Research Assistant. 
+Your goal is to synthesize information from the provided context (Documents and Web) into a comprehensive, educational response.
 
 Context:
 ${contextText}
 
 Instructions:
-- **Synthesize & Integrate**: Seamlessly combine insights from the **Documents** (your primary knowledge base) with the **Web Sources** (external context).
-- **Conflict Resolution**: If Web Sources contradict Documents, note the discrepancy but prioritize the user's specific Documents for internal specifics, and Web Sources for general/recent facts.
-- **Deep Research**: Use Web Sources to explain, expand, or verify information found in Documents.
-- **Citations**: 
-    - Cite Documents as [Document Name].
-    - Cite Web Sources as [Source Title](URL).
-- **Unknowns**: If the answer is not in the context, say "No relevant data found." and do not make up an answer.
+- **Educational Tone**: Explain complex concepts clearly. Use analogies if helpful.
+- **Math & Logic**: If the user asks a math or logic problem, solve it step-by-step.
+- **Synthesize**: Integrate Document facts with Web context.
+- **Citations**: Cite Documents as [Document Name] and Web sources as [Source Name](URL).
+- **Subject Mastery**: You can explain any subject or field (Science, History, Math, Tech, etc.) using the context as your anchor.
 `;
-        } else {
-            // DOCUMENT-ONLY MODE: Answer strictly from uploaded documents
-            systemPrompt = `You are a helpful AI Knowledge Assistant that answers questions based ONLY on the provided documents.
+        } else if (mode === 'learning') {
+            systemPrompt = `You are a world-class AI Private Tutor.
+Your goal is to help the user master their study material through clear explanations and step-by-step guidance.
 
 Context from Documents:
 ${contextText}
 
 Instructions:
-- **Answer ONLY from the provided documents.** Do NOT use any external knowledge or make assumptions beyond what is in the documents.
-- **Citations**: Reference the source document as [Document Name] when citing information.
-- **Direct & Concise**: Be clear and to the point, drawing only from the document content above.
-- **Unknowns**: If the answer is NOT found in the provided documents, clearly state: "This information is not available in the uploaded documents." Do NOT guess or fabricate an answer.
-- **No Web Content**: Do not reference any web sources or external information. You only have access to the user's uploaded documents.
+- **Math Specialist**: Solve math problems with clear, numbered steps. Explain the "why" behind each step.
+- **Adaptive Explanations**: If a concept is hard, break it down. Ask the user if they follow.
+- **Subject Versatility**: Whether it's history, calculus, or coding, provide expert-level instruction based on the documents.
+- **Encouragement**: Be supportive and foster a growth mindset.
+`;
+        } else {
+            // STRICT MODE: Answer strictly from uploaded documents
+            systemPrompt = `You are a precision-focused AI Knowledge Assistant. 
+Your goal is to answer questions strictly using only the provided document context.
+
+Context from Documents:
+${contextText}
+
+Instructions:
+- **Strict Adherence**: Answer ONLY from the provided documents. Do NOT use external knowledge.
+- **Math**: If math is present in the documents, explain it exactly as described.
+- **Citations**: Always cite the source as [Document Name].
+- **Unknowns**: If not in the documents, state: "This information is not available in the uploaded documents."
 `;
         }
 
 
         // Fetch history
-        const history = await db.query.messages.findMany({
-            where: eq(messages.chatId, currentChatId),
+        const formattedHistory = isGuest ? [] : (await db.query.messages.findMany({
+            where: eq(messages.chatId, currentChatId!),
             orderBy: [desc(messages.createdAt)],
             limit: 10,
-        });
-
-        const formattedHistory = history.reverse().map(msg => ({
+        })).reverse().map(msg => ({
             role: msg.role as 'user' | 'assistant',
             content: msg.content
         }));
@@ -247,12 +248,14 @@ Instructions:
                         }
                     }
 
-                    // Save assistant message to DB
-                    await db.insert(messages).values({
-                        chatId: currentChatId,
-                        role: 'assistant',
-                        content: fullResponse || "(No response generated)",
-                    });
+                    if (!isGuest) {
+                        // Save assistant message to DB
+                        await db.insert(messages).values({
+                            chatId: currentChatId!,
+                            role: 'assistant',
+                            content: fullResponse || "(No response generated)",
+                        });
+                    }
 
                     controller.close();
                 } catch (streamError) {

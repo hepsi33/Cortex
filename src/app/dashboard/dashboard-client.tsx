@@ -1,245 +1,123 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Youtube, FileText, MessageSquare, ArrowRight, Folder, Clock, Plus, Sparkles, Bot, Search } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
-import Link from "next/link";
-import { cn } from "@/lib/utils";
-
-type Workspace = {
-    id: string;
-    name: string;
-    createdAt: Date;
-    documents: any[];
-};
-
-type Document = {
-    id: string;
-    name: string;
-    status: string;
-    createdAt: Date;
-};
-
-type Chat = {
-    id: string;
-    title: string;
-    createdAt: Date;
-    workspace: { name: string } | null;
-};
+import SoftAurora from "@/components/dashboard/SoftAurora";
+import FloatingCards from "@/components/dashboard/FloatingCards";
 
 type DashboardClientProps = {
     displayName: string;
     email: string;
-    workspaces: Workspace[];
-    recentDocs: Document[];
-    recentChats: Chat[];
+    workspaces: any[];
+    recentDocs: any[];
+    recentChats: any[];
+    stats: {
+        focusedTime: string;
+        quizzesTaken: number;
+        totalSpaces: number;
+        totalDocs: number;
+    };
 };
 
 export function UserDashboardClient({
     displayName,
     email,
-    workspaces = [],
-    recentDocs = [],
-    recentChats = []
+    workspaces,
+    recentDocs,
+    recentChats,
+    stats
 }: DashboardClientProps) {
 
-    const formatDate = (date: Date) => {
-        return new Date(date).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric'
-        });
-    };
-
     return (
-        <div className="min-h-screen bg-[#0a0a0a] flex flex-col font-sans">
-            {/* Header */}
-            <header className="bg-[#0a0a0a] border-b border-white/5 sticky top-0 z-10 backdrop-blur-md bg-opacity-80">
-                <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
-                            <Sparkles className="w-4 h-4 text-white" />
-                        </div>
-                        <h1 className="text-lg font-bold text-white tracking-tight">AI Workspace</h1>
+        <div 
+            className="relative w-screen h-screen overflow-hidden text-white font-sans bg-[#020205]"
+        >
+            
+            {/* LAYER 1: Background Aurora */}
+            <div className="absolute inset-0 z-0">
+                <SoftAurora
+                    speed={0.4}
+                    scale={1.2}
+                    brightness={0.8}
+                    color1="#00d4ff"
+                    color2="#e100ff"
+                    noiseFrequency={2.0}
+                    noiseAmplitude={1.2}
+                    bandHeight={0.4}
+                    bandSpread={1.2}
+                    octaveDecay={0.2}
+                    layerOffset={0}
+                    colorSpeed={0.8}
+                    enableMouseInteraction={true}
+                    mouseInfluence={0.15}
+                />
+            </div>
+
+            {/* LAYER 2: HTML UI Overlay */}
+            <div className="absolute inset-0 z-10 pointer-events-none">
+                
+                {/* Header: Top Left */}
+                <div className="absolute top-8 left-8 flex items-center gap-4 pointer-events-auto">
+                    <div className="w-12 h-12 flex items-center justify-center relative">
+                        <img 
+                            src="/login_logo.png" 
+                            alt="Cortex Logo" 
+                            className="w-full h-full object-contain scale-150"
+                            style={{ mixBlendMode: 'screen' }}
+                        />
                     </div>
-                    <div className="flex items-center gap-4">
-                        <div className="text-right hidden md:block">
-                            <p className="text-sm font-medium text-white">{displayName}</p>
-                            <p className="text-xs text-gray-500">{email}</p>
-                        </div>
-                        <SignOutButton />
-                    </div>
-                </div>
-            </header>
-
-            <main className="container mx-auto px-6 py-8 flex-1 max-w-7xl">
-                {/* Welcome Section */}
-                <div className="mb-10">
-                    <h2 className="text-3xl font-bold tracking-tight text-white mb-2">
-                        Welcome back, {displayName}
-                    </h2>
-                    <p className="text-gray-400 text-lg">
-                        Access your AI study tools, documents, and workspaces.
-                    </p>
-                </div>
-
-                {/* AI Study Tools Grid */}
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-10">
-                    {/* YouTube Tool */}
-                    <Link href="/dashboard/ai-notes" className="group">
-                        <Card className="h-full bg-[#111111] border-white/5 hover:border-purple-500/50 transition-all hover:bg-[#161616]">
-                            <CardHeader>
-                                <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center mb-2 group-hover:bg-purple-500/20 transition-colors">
-                                    <Youtube className="w-5 h-5 text-purple-400" />
-                                </div>
-                                <CardTitle className="text-white group-hover:text-purple-400 transition-colors">YouTube Notes</CardTitle>
-                                <CardDescription className="text-gray-400">Convert YouTube lectures into structured study notes.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-sm font-medium text-purple-400 flex items-center gap-1">
-                                    Open Tool <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </Link>
-
-                    {/* Knowledge Workspace */}
-                    <Link href="/dashboard/rag" className="group">
-                        <Card className="h-full bg-[#111111] border-white/5 hover:border-blue-500/50 transition-all hover:bg-[#161616]">
-                            <CardHeader>
-                                <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center mb-2 group-hover:bg-blue-500/20 transition-colors">
-                                    <Bot className="w-5 h-5 text-blue-400" />
-                                </div>
-                                <CardTitle className="text-white group-hover:text-blue-400 transition-colors">Knowledge Workspace</CardTitle>
-                                <CardDescription className="text-gray-400">Upload documents, organize workspaces, and chat with AI.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-sm font-medium text-blue-400 flex items-center gap-1">
-                                    Open Workspace <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </Link>
-                </div>
-
-                {/* Main Content Grid */}
-                <div className="grid gap-8 lg:grid-cols-3">
-
-                    {/* Left Column: Workspaces */}
-                    <div className="lg:col-span-2 space-y-6">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                                <Folder className="w-5 h-5 text-gray-400" />
-                                Your Workspaces
-                            </h3>
-                            <Link href="/dashboard/rag">
-                                <span className="text-xs font-medium text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer">
-                                    <Plus className="w-3 h-3" /> New Workspace
-                                </span>
-                            </Link>
-                        </div>
-
-                        {workspaces.length === 0 ? (
-                            <div className="bg-[#111111] border border-white/5 rounded-xl p-8 text-center">
-                                <Folder className="w-10 h-10 text-gray-600 mx-auto mb-3 opacity-50" />
-                                <h4 className="text-white font-medium mb-1">No workspaces yet</h4>
-                                <p className="text-gray-500 text-sm mb-4">Create a workspace to start organizing your documents.</p>
-                                <Link href="/dashboard/rag">
-                                    <span className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors">
-                                        Create Workspace
-                                    </span>
-                                </Link>
-                            </div>
-                        ) : (
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                {workspaces.map((ws) => (
-                                    <Link key={ws.id} href="/dashboard/rag">
-                                        <div className="bg-[#111111] border border-white/5 rounded-xl p-5 hover:border-gray-600 transition-all cursor-pointer group h-full flex flex-col justify-between">
-                                            <div>
-                                                <div className="flex items-start justify-between mb-3">
-                                                    <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 group-hover:text-white transition-colors">
-                                                        <Folder className="w-4 h-4" />
-                                                    </div>
-                                                    <span className="text-xs text-gray-500 font-mono">{formatDate(ws.createdAt)}</span>
-                                                </div>
-                                                <h4 className="text-white font-medium truncate group-hover:text-blue-400 transition-colors">{ws.name}</h4>
-                                            </div>
-                                            <div className="mt-4 flex items-center text-xs text-gray-400 gap-2">
-                                                <FileText className="w-3 h-3" />
-                                                {ws.documents.length} document{ws.documents.length !== 1 && 's'}
-                                            </div>
-                                        </div>
-                                    </Link>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Right Column: Recent Activity */}
-                    <div className="space-y-8">
-
-                        {/* Recent Documents */}
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                <Clock className="w-4 h-4" /> Recent Documents
-                            </h3>
-                            <div className="space-y-3">
-                                {recentDocs.length === 0 ? (
-                                    <p className="text-sm text-gray-600 italic">No documents uploaded yet.</p>
-                                ) : (
-                                    recentDocs.map((doc) => (
-                                        <div key={doc.id} className="bg-[#111111] border border-white/5 p-3 rounded-lg flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded bg-gray-900 flex items-center justify-center shrink-0">
-                                                <FileText className="w-4 h-4 text-gray-500" />
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-sm text-white truncate" title={doc.name}>{doc.name}</p>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    <span className={cn(
-                                                        "w-1.5 h-1.5 rounded-full",
-                                                        doc.status === 'completed' ? "bg-green-500" :
-                                                            doc.status === 'indexing' ? "bg-blue-500" :
-                                                                doc.status === 'failed' ? "bg-red-500" : "bg-gray-500"
-                                                    )} />
-                                                    <span className="text-xs text-gray-500 capitalize">{doc.status}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Recent Chats */}
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                <MessageSquare className="w-4 h-4" /> Recent Chats
-                            </h3>
-                            <div className="space-y-3">
-                                {recentChats.length === 0 ? (
-                                    <p className="text-sm text-gray-600 italic">No chats started yet.</p>
-                                ) : (
-                                    recentChats.map((chat) => (
-                                        <Link key={chat.id} href="/dashboard/rag">
-                                            <div className="bg-[#111111] border border-white/5 p-3 rounded-lg hover:bg-[#161616] transition-colors cursor-pointer group">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-xs text-blue-400 font-medium px-1.5 py-0.5 rounded bg-blue-400/10 border border-blue-400/20">
-                                                        {chat.workspace?.name || 'Workspace'}
-                                                    </span>
-                                                    <span className="text-[10px] text-gray-600">{formatDate(chat.createdAt)}</span>
-                                                </div>
-                                                <p className="text-sm text-gray-300 line-clamp-2 group-hover:text-white transition-colors">
-                                                    {chat.title || "New Conversation"}
-                                                </p>
-                                            </div>
-                                        </Link>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
+                    <div>
+                        <h1 className="text-2xl font-black tracking-widest text-white leading-tight" style={{ textShadow: '0 0 10px rgba(255,255,255,0.3)' }}>CORTEX</h1>
+                        <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-[#e100ff]">YOUR STUDY PARTNER</p>
                     </div>
                 </div>
-            </main>
+
+                {/* Header: Top Right */}
+                <div className="absolute top-8 right-8 flex items-center gap-6 pointer-events-auto bg-black/40 px-6 py-3 rounded-full border border-white/10 backdrop-blur-md">
+                    <div className="text-right">
+                        <p className="text-sm font-black uppercase tracking-widest text-white">{displayName}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#e100ff]">ACTIVE VOYAGER</p>
+                    </div>
+                    <div className="w-[1px] h-6 bg-white/20"></div>
+                    <SignOutButton />
+                </div>
+
+                {/* Floating Cards */}
+                <FloatingCards />
+
+                {/* Footer Center */}
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-auto flex flex-col items-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
+                    <div className="w-8 h-8 rounded-full border border-[#e100ff]/50 flex items-center justify-center">
+                        <div className="w-3 h-3 bg-[#e100ff] rounded-full" />
+                    </div>
+                    <p className="text-[10px] font-bold tracking-[0.5em] text-[#e100ff]">CORTEX.SYS</p>
+                </div>
+
+                {/* HUD: Bottom Left (Hexagons) */}
+                <div className="absolute bottom-8 left-8 opacity-70 flex items-center gap-2">
+                    <div className="relative w-16 h-16 animate-[spin_20s_linear_infinite]">
+                        <svg viewBox="0 0 100 100" className="w-full h-full fill-none stroke-[#e100ff] stroke-1">
+                            <polygon points="50,5 95,25 95,75 50,95 5,75 5,25" />
+                        </svg>
+                        <svg viewBox="0 0 100 100" className="absolute top-0 left-0 w-full h-full fill-none stroke-[#e100ff] stroke-[0.5] rotate-90 scale-75">
+                            <polygon points="50,5 95,25 95,75 50,95 5,75 5,25" />
+                        </svg>
+                    </div>
+                    <div className="h-[1px] w-24 bg-gradient-to-r from-[#e100ff]/50 to-transparent" />
+                </div>
+
+                {/* HUD: Bottom Right (Mechanical Circle & Sparkle) */}
+                <div className="absolute bottom-8 right-8 flex flex-col items-end gap-4 opacity-70">
+                    <div className="animate-star-sparkle text-white text-2xl leading-none">✦</div>
+                    <div className="relative w-20 h-20 animate-[spin_15s_linear_infinite_reverse]">
+                        <svg viewBox="0 0 100 100" className="w-full h-full fill-none stroke-[#e100ff] stroke-1">
+                            <circle cx="50" cy="50" r="45" strokeDasharray="4 4" />
+                            <circle cx="50" cy="50" r="35" />
+                            <circle cx="50" cy="50" r="25" strokeDasharray="10 5" />
+                        </svg>
+                    </div>
+                </div>
+
+            </div>
         </div>
     );
 }

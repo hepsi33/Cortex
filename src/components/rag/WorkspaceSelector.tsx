@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Folder, MoreVertical, Pencil, Trash2, Check, X, Loader2 } from 'lucide-react';
+import { Plus, Folder, MoreVertical, Pencil, Trash2, Check, X, Loader2, LayoutGrid, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -11,7 +11,9 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Workspace {
     id: string;
@@ -21,12 +23,13 @@ interface Workspace {
 
 interface WorkspaceSelectorProps {
     currentWorkspace: Workspace | null;
-    onWorkspaceChange: (workspace: Workspace) => void;
+    onWorkspaceChange: (workspace: Workspace | null) => void;
 }
 
 export function WorkspaceSelector({ currentWorkspace, onWorkspaceChange }: WorkspaceSelectorProps) {
     const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
     const [loading, setLoading] = useState(true);
+    const [creating, setCreating] = useState(false);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [newWorkspaceName, setNewWorkspaceName] = useState('');
     const [isRenaming, setIsRenaming] = useState(false);
@@ -42,7 +45,6 @@ export function WorkspaceSelector({ currentWorkspace, onWorkspaceChange }: Works
             const data = await res.json();
             if (Array.isArray(data)) {
                 setWorkspaces(data);
-                // Auto-select first workspace if none selected and workspaces exist
                 if (!currentWorkspace && data.length > 0) {
                     onWorkspaceChange(data[0]);
                 }
@@ -55,13 +57,22 @@ export function WorkspaceSelector({ currentWorkspace, onWorkspaceChange }: Works
     };
 
     const handleCreate = async () => {
-        if (!newWorkspaceName.trim()) return;
+        if (!newWorkspaceName.trim() || creating) return;
+        setCreating(true);
         try {
             const res = await fetch('/api/workspaces', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: newWorkspaceName }),
             });
+            
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                const error = new Error(err.error || 'Server error') as any;
+                error.details = err.details;
+                throw error;
+            }
+
             const workspace = await res.json();
             if (workspace.id) {
                 setWorkspaces([workspace, ...workspaces]);
@@ -69,8 +80,12 @@ export function WorkspaceSelector({ currentWorkspace, onWorkspaceChange }: Works
                 setIsCreateOpen(false);
                 setNewWorkspaceName('');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to create workspace:', error);
+            const detail = error.details ? ` (${error.details})` : '';
+            alert(`Failed to create space: ${error.message}${detail}`);
+        } finally {
+            setCreating(false);
         }
     };
 
@@ -105,97 +120,122 @@ export function WorkspaceSelector({ currentWorkspace, onWorkspaceChange }: Works
         }
     };
 
-    if (loading) return <Loader2 className="w-5 h-5 animate-spin text-gray-400" />;
-
-    if (workspaces.length === 0 && !loading) {
+    if (loading) {
         return (
-            <div className="flex items-center gap-2">
-                <Button onClick={() => setIsCreateOpen(true)} variant="outline" size="sm" className="gap-2 bg-[#1f2937] border-gray-800 text-white hover:bg-[#374151] hover:text-white">
-                    <Plus className="w-4 h-4" /> Create Workspace
-                </Button>
-                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                    <DialogContent className="bg-[#111827] border-gray-800 text-white">
-                        <DialogHeader><DialogTitle className="text-white">Create New Workspace</DialogTitle></DialogHeader>
-                        <Input
-                            placeholder="Workspace Name (e.g., Engineering, Q1 Finance)"
-                            value={newWorkspaceName}
-                            onChange={(e) => setNewWorkspaceName(e.target.value)}
-                            className="bg-[#0f172a] border-gray-700 text-white placeholder:text-gray-500 focus-visible:ring-blue-600"
-                        />
-                        <DialogFooter>
-                            <Button onClick={handleCreate} disabled={!newWorkspaceName.trim()} className="bg-blue-600 hover:bg-blue-700 text-white border-none">Create</Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+            <div className="h-14 w-full bg-white/[0.03] border border-white/5 rounded-2xl flex items-center justify-center animate-pulse">
+                <Loader2 className="w-4 h-4 animate-spin text-white/20" />
             </div>
         );
     }
 
     return (
-        <div className="flex items-center gap-2">
-            {isRenaming ? (
-                <div className="flex items-center gap-1">
-                    <Input
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        className="h-8 w-40 bg-[#0f172a] border-gray-700 text-white focus-visible:ring-blue-600"
-                        autoFocus
-                    />
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-green-500 hover:text-green-400 hover:bg-gray-800" onClick={handleRename}>
-                        <Check className="w-4 h-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:text-red-400 hover:bg-gray-800" onClick={() => setIsRenaming(false)}>
-                        <X className="w-4 h-4" />
-                    </Button>
-                </div>
-            ) : (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="gap-2 min-w-[200px] justify-between bg-[#1f2937] border-gray-800 text-white hover:bg-[#374151] hover:text-white">
-                            <span className="flex items-center gap-2 truncate">
-                                <Folder className="w-4 h-4 text-blue-500" />
-                                {currentWorkspace?.name || "Select Workspace"}
-                            </span>
-                            <MoreVertical className="w-4 h-4 text-gray-400" />
+        <div className="space-y-4">
+            <div className="flex items-center gap-2">
+                {isRenaming ? (
+                    <div className="flex-1 flex items-center gap-2">
+                        <Input
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            className="h-14 bg-white/5 border-[#e100ff]/30 text-white focus-visible:ring-1 focus-visible:ring-[#e100ff]/50 rounded-2xl"
+                            autoFocus
+                        />
+                        <Button size="icon" variant="ghost" className="h-14 w-14 bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white rounded-2xl" onClick={handleRename}>
+                            <Check className="w-5 h-5" />
                         </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-[200px] bg-[#1f2937] border-gray-800 text-white">
-                        {workspaces.map(w => (
-                            <DropdownMenuItem key={w.id} onClick={() => onWorkspaceChange(w)} className="justify-between focus:bg-gray-700 focus:text-white cursor-pointer">
-                                <span className={w.id === currentWorkspace?.id ? "font-semibold text-white" : "text-gray-300"}>{w.name}</span>
-                                {w.id === currentWorkspace?.id && <Check className="w-3 h-3 text-blue-500" />}
-                            </DropdownMenuItem>
-                        ))}
-                        <DropdownMenuSeparator className="bg-gray-700" />
-                        <DropdownMenuItem onClick={() => {
-                            setRenameValue(currentWorkspace?.name || '');
-                            setIsRenaming(true);
-                        }} className="focus:bg-gray-700 focus:text-white cursor-pointer">
-                            <Pencil className="w-3.5 h-3.5 mr-2" /> Rename Current
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleDelete} className="text-red-400 focus:text-red-400 focus:bg-gray-700 cursor-pointer">
-                            <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete Current
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator className="bg-gray-700" />
-                        <DropdownMenuItem onClick={() => setIsCreateOpen(true)} className="focus:bg-gray-700 focus:text-white cursor-pointer">
-                            <Plus className="w-3.5 h-3.5 mr-2" /> Create New...
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            )}
+                        <Button size="icon" variant="ghost" className="h-14 w-14 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-2xl" onClick={() => setIsRenaming(false)}>
+                            <X className="w-5 h-5" />
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="flex-1 flex items-center gap-3">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className="h-14 flex-1 bg-white/[0.03] border-white/5 hover:bg-white/5 hover:border-white/10 text-white rounded-2xl px-6 justify-between transition-all group shadow-xl">
+                                    <span className="flex items-center gap-4 truncate">
+                                        <div className="w-8 h-8 rounded-xl bg-[#00d4ff]/10 flex items-center justify-center border border-[#00d4ff]/20">
+                                            <Folder className="w-4 h-4 text-[#00d4ff]" />
+                                        </div>
+                                        <span className="text-sm font-black uppercase tracking-widest italic truncate max-w-[140px]">
+                                            {currentWorkspace?.name || "Select Space"}
+                                        </span>
+                                    </span>
+                                    <ChevronDown className="w-4 h-4 text-white/20 group-hover:text-white transition-colors" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-[280px] bg-[#0a0a0c]/90 backdrop-blur-3xl border-white/5 text-white rounded-2xl p-2 shadow-4xl animate-in fade-in zoom-in duration-200">
+                                <ScrollArea className="max-h-[300px]">
+                                    {workspaces.map(w => (
+                                        <DropdownMenuItem 
+                                            key={w.id} 
+                                            onClick={() => onWorkspaceChange(w)} 
+                                            className={cn(
+                                                "h-12 px-4 rounded-xl flex items-center justify-between cursor-pointer transition-all mb-1",
+                                                w.id === currentWorkspace?.id ? "bg-[#e100ff]/10 text-[#e100ff]" : "hover:bg-white/5"
+                                            )}
+                                        >
+                                            <span className="text-[10px] font-black uppercase tracking-widest truncate">{w.name}</span>
+                                            {w.id === currentWorkspace?.id && <Check className="w-3.5 h-3.5" />}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </ScrollArea>
+                                <DropdownMenuSeparator className="bg-white/5 my-2" />
+                                <DropdownMenuItem onClick={() => {
+                                    setRenameValue(currentWorkspace?.name || '');
+                                    setIsRenaming(true);
+                                }} className="h-12 px-4 rounded-xl hover:bg-white/5 cursor-pointer text-[10px] font-black uppercase tracking-widest">
+                                    <Pencil className="w-3.5 h-3.5 mr-3 text-white/40" /> Rename Space
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={handleDelete} className="h-12 px-4 rounded-xl hover:bg-red-500/10 text-red-400 cursor-pointer text-[10px] font-black uppercase tracking-widest">
+                                    <Trash2 className="w-3.5 h-3.5 mr-3" /> Purge Space
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator className="bg-white/5 my-2" />
+                                <DropdownMenuItem onClick={() => setIsCreateOpen(true)} className="h-12 px-4 rounded-xl bg-white text-black hover:bg-[#e100ff] hover:text-white cursor-pointer text-[10px] font-black uppercase tracking-widest transition-all">
+                                    <Plus className="w-3.5 h-3.5 mr-3" /> Initialize New Space
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        <Button 
+                            size="icon" 
+                            variant="outline" 
+                            onClick={() => setIsCreateOpen(true)}
+                            className="h-14 w-14 bg-[#e100ff]/10 border-[#e100ff]/20 text-[#e100ff] hover:bg-[#e100ff] hover:text-white rounded-2xl shadow-xl transition-all"
+                        >
+                            <Plus className="w-6 h-6" />
+                        </Button>
+                    </div>
+                )}
+            </div>
 
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                <DialogContent className="bg-[#111827] border-gray-800 text-white">
-                    <DialogHeader><DialogTitle className="text-white">Create New Workspace</DialogTitle></DialogHeader>
-                    <Input
-                        placeholder="Workspace Name"
-                        value={newWorkspaceName}
-                        onChange={(e) => setNewWorkspaceName(e.target.value)}
-                        className="bg-[#0f172a] border-gray-700 text-white placeholder:text-gray-500 focus-visible:ring-blue-600"
-                    />
-                    <DialogFooter>
-                        <Button onClick={handleCreate} disabled={!newWorkspaceName.trim()} className="bg-blue-600 hover:bg-blue-700 text-white border-none">Create</Button>
-                    </DialogFooter>
+                <DialogContent className="bg-[#0a0a0c]/90 backdrop-blur-3xl border-white/5 rounded-[2.5rem] p-10 max-w-xl">
+                    <DialogHeader className="space-y-4">
+                        <DialogTitle className="text-2xl font-black uppercase tracking-tighter italic text-white flex items-center gap-4">
+                            <div className="w-12 h-12 bg-[#00d4ff]/10 border border-[#00d4ff]/20 rounded-2xl flex items-center justify-center">
+                                <LayoutGrid className="w-6 h-6 text-[#00d4ff]" />
+                            </div>
+                            New Research Space
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-white/20 font-black uppercase tracking-widest leading-relaxed">
+                            Define a new specialized intelligence repository.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-8 py-8">
+                        <Input
+                            placeholder="Space Identifier (e.g. Quantum Physics, Q3 Earnings)"
+                            value={newWorkspaceName}
+                            onChange={(e) => setNewWorkspaceName(e.target.value)}
+                            className="h-16 bg-white/5 border-white/5 rounded-2xl px-6 text-sm focus:border-[#00d4ff]/50 transition-all placeholder:text-white/5 font-medium"
+                            onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+                        />
+                        <Button 
+                            onClick={handleCreate} 
+                            disabled={!newWorkspaceName.trim() || creating} 
+                            className="w-full h-16 bg-white text-black hover:bg-[#00d4ff] hover:text-white rounded-2xl font-black uppercase tracking-[0.2em] transition-all shadow-3xl"
+                        >
+                            {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Materialize Space'}
+                        </Button>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>

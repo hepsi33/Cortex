@@ -21,14 +21,25 @@ async function getVisionModel() {
 }
 
 // We'll initialize lazily inside the function or just use a default for now and handle errors dynamically
-const visionModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const visionModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }); // Using Pro for better OCR
 
 export async function parsePdf(buffer: Buffer): Promise<string> {
-    // pdf-parse is a CommonJS module, so we might need to require it
-    // @ts-ignore
-    const pdfParse = (await import('pdf-parse')).default;
-    const data = await pdfParse(buffer);
-    return data.text;
+    try {
+        // pdf-parse can have different export styles depending on environment
+        const pdf: any = await import('pdf-parse');
+        const pdfParse = pdf.default || pdf;
+        
+        if (typeof pdfParse !== 'function') {
+            console.error("[Parser] pdf-parse is not a function:", pdfParse);
+            throw new Error("PDF parser initialization failed");
+        }
+        
+        const data = await pdfParse(buffer);
+        return data.text;
+    } catch (err: any) {
+        console.error("[Parser] PDF Parse logic error:", err);
+        throw err;
+    }
 }
 
 export async function parseDocx(buffer: Buffer): Promise<string> {
@@ -75,7 +86,11 @@ export async function parseImage(buffer: Buffer, mimeType: string): Promise<stri
             mimeType: mimeType
         },
     };
-    const prompt = "Describe this image in detail. Extract any text visible in the image.";
+    const prompt = `This is a document or a textbook page. Please extract ALL text from this image exactly as it appears. 
+    Maintain the structure (headings, lists, tables). 
+    If there are diagrams, describe them. 
+    DO NOT just list the alphabet or numbers; read the actual content of the document.
+    Return ONLY the extracted text and descriptions.`;
 
     let lastError;
 

@@ -1,13 +1,39 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import { compare } from "bcryptjs";
 import { db } from "./db";
-import { users } from "@/drizzle/schema";
+import { profiles } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
     providers: [
+        Google({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        }),
         Credentials({
+            id: "guest",
+            name: "Guest",
+            credentials: {},
+            authorize: async () => {
+                // Generate a valid UUID for the guest to prevent DB crashes
+                const id = Array.from({ length: 36 }, (_, i) => 
+                    [8, 13, 18, 23].includes(i) ? '-' : Math.floor(Math.random() * 16).toString(16)
+                ).join('');
+                return {
+                    id: id,
+                    name: "Guest Voyager",
+                    email: `guest_${id}@cortex.study`,
+                    role: "user",
+                    status: "active",
+                    isGuest: true
+                };
+            }
+        }),
+        Credentials({
+            id: "credentials",
+            name: "Credentials",
             credentials: {
                 email: {},
                 password: {},
@@ -20,8 +46,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 const email = credentials.email as string;
                 const password = credentials.password as string;
 
-                const user = await db.query.users.findFirst({
-                    where: eq(users.email, email),
+                const user = await db.query.profiles.findFirst({
+                    where: eq(profiles.email, email),
                 });
 
                 if (!user) {
@@ -34,7 +60,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     throw new Error("Invalid password.");
                 }
 
-                // Return user with status - let the client handle redirection
                 return {
                     id: user.id,
                     name: user.name,
@@ -53,6 +78,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 token.role = user.role as string;
                 token.id = user.id as string;
                 token.status = (user as any).status as string;
+                token.isGuest = (user as any).isGuest as boolean;
             }
             return token;
         },
@@ -70,6 +96,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 session.user.role = token.role as string;
                 session.user.id = token.id as string;
                 session.user.status = token.status as string;
+                (session.user as any).isGuest = token.isGuest as boolean;
             }
             return session;
         },
