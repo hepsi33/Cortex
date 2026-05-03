@@ -1,23 +1,16 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import Google from "next-auth/providers/google";
-import { compare } from "bcryptjs";
-import { db } from "./db";
-import { profiles } from "@/drizzle/schema";
-import { eq } from "drizzle-orm";
+import { authConfig } from "./auth.config";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+    ...authConfig,
     providers: [
-        Google({
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        }),
+        ...authConfig.providers,
         Credentials({
             id: "guest",
             name: "Guest",
             credentials: {},
             authorize: async () => {
-                // Generate a valid UUID for the guest to prevent DB crashes
                 const id = Array.from({ length: 36 }, (_, i) => 
                     [8, 13, 18, 23].includes(i) ? '-' : Math.floor(Math.random() * 16).toString(16)
                 ).join('');
@@ -42,6 +35,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 if (!credentials?.email || !credentials?.password) {
                     return null;
                 }
+
+                // Dynamic imports to stay Edge-friendly
+                const { db } = await import("./db");
+                const { profiles } = await import("@/drizzle/schema");
+                const { eq } = await import("drizzle-orm");
+                const { compare } = await import("bcryptjs");
 
                 const email = credentials.email as string;
                 const password = credentials.password as string;
@@ -70,42 +69,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             },
         }),
     ],
-    callbacks: {
-        async jwt({ token, user }) {
-            if (user) {
-                token.name = user.name;
-                token.email = user.email;
-                token.role = user.role as string;
-                token.id = user.id as string;
-                token.status = (user as any).status as string;
-                token.isGuest = (user as any).isGuest as boolean;
-            }
-            return token;
-        },
-        async redirect({ url, baseUrl }) {
-            // Always send users to dashboard if they are signed in
-            if (url.startsWith("/")) {
-                return `${baseUrl}${url}`;
-            } else if (new URL(url).origin === baseUrl) {
-                return url;
-            }
-            return baseUrl;
-        },
-        async session({ session, token }) {
-            if (session.user) {
-                session.user.role = token.role as string;
-                session.user.id = token.id as string;
-                session.user.status = token.status as string;
-                (session.user as any).isGuest = token.isGuest as boolean;
-            }
-            return session;
-        },
-    },
-    pages: {
-        signIn: "/login",
-    },
-    session: {
-        strategy: "jwt",
-    },
-    secret: process.env.AUTH_SECRET,
 });
