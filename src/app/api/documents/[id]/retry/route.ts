@@ -74,9 +74,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
                     // Now process the real content for embeddings
                     const { processDocumentChunks } = await import('@/lib/processor');
-                    processDocumentChunks(doc.id, newContent).catch(err =>
-                        console.error('Retry embedding failed:', err)
-                    );
+                    await processDocumentChunks(doc.id, newContent);
 
                     return NextResponse.json({ message: 'Image re-analyzed successfully' }, { status: 200 });
                 } catch (parseErr) {
@@ -95,11 +93,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // Standard retry: Reprocess using stored text content
         const { processDocumentChunks } = await import('@/lib/processor');
 
-        processDocumentChunks(doc.id, doc.content).catch(err =>
-            console.error('Retry processing failed:', err)
-        );
+        await processDocumentChunks(doc.id, doc.content);
 
-        return NextResponse.json({ message: 'Retry initiated' }, { status: 200 });
+        return NextResponse.json({ message: 'Retry complete' }, { status: 200 });
 
     } catch (error) {
         console.error('Retry error:', error);

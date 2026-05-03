@@ -211,10 +211,8 @@ export async function processDocumentChunks(documentId: string, textContent: str
         const batchNum = Math.floor(batchStart / BATCH_SIZE) + 1;
         const totalBatches = Math.ceil(totalChunks / BATCH_SIZE);
 
-        // Rate limit: 15 RPM = 1 request every 4s. Using 4.1s to be safe.
-        if (batchStart > 0) {
-            await new Promise(resolve => setTimeout(resolve, 4100));
-        }
+        // Rely on batchEmbed's internal retry/delay logic for 429s.
+        // This makes small/medium docs instant again.
 
         try {
             console.log(`[Processor] 📡 Embedding batch ${batchNum}/${totalBatches}...`);

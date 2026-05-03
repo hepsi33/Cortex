@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
             }).returning();
 
             docId = doc.id;
-            processUpload(docId, buffer, file.type, file.name).catch(console.error);
+            await processUpload(docId, buffer, file.type, file.name);
 
         } else {
             const body = await req.json();
@@ -81,10 +81,10 @@ export async function POST(req: NextRequest) {
             }).returning();
 
             docId = doc.id;
-            processUrl(docId, url).catch(console.error);
+            await processUrl(docId, url);
         }
 
-        return NextResponse.json({ id: docId, status: 'indexing' }, { status: 202 });
+        return NextResponse.json({ id: docId, status: 'completed' }, { status: 200 });
 
     } catch (error: any) {
         console.error('Upload error:', error);

@@ -44,10 +44,10 @@ export async function POST(req: NextRequest) {
 
         const { processDocumentChunks } = await import('@/lib/processor');
 
-        // Fire and forget processing
-        processDocumentChunks(doc.id, content).catch(err => console.error('Background processing failed:', err));
+        // Await processing to prevent Vercel from killing the task
+        await processDocumentChunks(doc.id, content);
 
-        return NextResponse.json({ id: doc.id, status: 'pending' }, { status: 202 });
+        return NextResponse.json({ id: doc.id, status: 'completed' }, { status: 200 });
 
     } catch (error) {
         console.error('URL ingest error:', error);
