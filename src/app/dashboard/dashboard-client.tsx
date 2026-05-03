@@ -65,12 +65,16 @@ export function UserDashboardClient({
                 <header className="absolute top-0 left-0 right-0 p-8 flex items-center justify-between pointer-events-auto">
                     {/* Brand Info */}
                     <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 flex items-center justify-center relative">
-                            <img 
-                                src="/login_logo.png" 
-                                alt="Cortex Logo" 
-                                className="w-full h-full object-contain scale-110"
-                            />
+                        <div className="relative group cursor-target">
+                            <div className="absolute inset-0 bg-[#e100ff]/10 blur-xl rounded-full transition-all duration-700" />
+                            <div className="relative w-12 h-12 flex items-center justify-center overflow-hidden">
+                                <img 
+                                    src="/login_logo.png" 
+                                    alt="Cortex Logo" 
+                                    className="w-full h-full object-contain scale-110"
+                                    style={{ imageRendering: 'high-quality' as any, mixBlendMode: 'screen' }}
+                                />
+                            </div>
                         </div>
                         <div>
                             <h1 className="text-2xl font-black tracking-widest text-white leading-tight" style={{ textShadow: '0 0 10px rgba(255,255,255,0.3)' }}>CORTEX</h1>
