@@ -82,14 +82,8 @@ export async function POST(req: NextRequest) {
 
             docId = doc.id;
             
-            // 3. Background the heavy embedding
-            (async () => {
-                try {
-                    await processDocumentChunks(docId, textContent);
-                } catch (err) {
-                    console.error('Background indexing failed:', err);
-                }
-            })();
+            // 3. Process the heavy embedding (Awaited for stability)
+            await processDocumentChunks(docId, textContent);
 
         } else {
             const body = await req.json();
@@ -100,7 +94,7 @@ export async function POST(req: NextRequest) {
 
             const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
             
-            // For URLs, we still background the whole thing because scraping can be slow
+            // For URLs, we create the doc first
             const [doc] = await db.insert(documents).values({
                 userId: userId as any,
                 workspaceId: workspaceId || null,
@@ -112,16 +106,11 @@ export async function POST(req: NextRequest) {
 
             docId = doc.id;
             
-            (async () => {
-                try {
-                    await processUrl(docId, url);
-                } catch (err) {
-                    console.error('Background URL processing failed:', err);
-                }
-            })();
+            // 4. Await full processing
+            await processUrl(docId, url);
         }
 
-        return NextResponse.json({ id: docId, status: 'indexing' }, { status: 202 });
+        return NextResponse.json({ id: docId, status: 'completed' }, { status: 200 });
 
     } catch (error: any) {
         console.error('Upload error:', error);

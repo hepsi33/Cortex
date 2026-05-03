@@ -206,59 +206,63 @@ export async function processDocumentChunks(documentId: string, textContent: str
     let processedSoFar = 0;
 
     try {
+        const BATCH_SIZE = 100;
+        const PARALLEL_BATCHES = 5; // Run 5 batches of 100 (500 chunks) in parallel
+        
+        const batchTasks = [];
         for (let batchStart = 0; batchStart < totalChunks; batchStart += BATCH_SIZE) {
             const batchEnd = Math.min(batchStart + BATCH_SIZE, totalChunks);
             const batchTexts = chunks.slice(batchStart, batchEnd).map(c => c.pageContent);
             const batchNum = Math.floor(batchStart / BATCH_SIZE) + 1;
-            const totalBatches = Math.ceil(totalChunks / BATCH_SIZE);
 
-            // Rely on batchEmbed's internal retry/delay logic for 429s.
-            // This makes small/medium docs instant again.
+            batchTasks.push((async () => {
+                try {
+                    console.log(`[Processor] 📡 Embedding batch ${batchNum}...`);
+                    const vectors = await batchEmbed(batchTexts);
+                    
+                    const rows = vectors.map((vector, i) => ({
+                        documentId,
+                        content: batchTexts[i],
+                        metadata: { chunkIndex: batchStart + i },
+                        vector
+                    }));
 
-            try {
-                console.log(`[Processor] 📡 Embedding batch ${batchNum}/${totalBatches}...`);
-                const embedStart = Date.now();
-                const vectors = await batchEmbed(batchTexts);
-                console.log(`[Processor] ⚡ Embedded ${vectors.length} chunks in ${Date.now() - embedStart}ms`);
+                    await db.insert(embeddings).values(rows);
+                    
+                    processedSoFar += vectors.length;
+                    const pct = Math.round((processedSoFar / totalChunks) * 100);
+                    console.log(`[Processor] 📊 Progress: ${pct}%`);
+                    
+                    // Simple progress update in DB
+                    await db.update(documents)
+                        .set({ processedCount: processedSoFar })
+                        .where(eq(documents.id, documentId));
+                } catch (e: any) {
+                    console.error(`[Processor] ❌ Batch ${batchNum} failed: ${e.message}`);
+                    throw e;
+                }
+            })());
 
-                // Prepare all rows for this batch
-                const rows = vectors.map((vector, i) => ({
-                    documentId,
-                    content: batchTexts[i],
-                    metadata: { chunkIndex: batchStart + i },
-                    vector
-                }));
-
-                // Bulk insert all 100 rows at once for speed
-                console.log(`[Processor] 💾 Saving to database...`);
-                const dbStart = Date.now();
-                await db.insert(embeddings).values(rows);
-                console.log(`[Processor] ✅ Database sync complete (${Date.now() - dbStart}ms)`);
-
-                processedSoFar += vectors.length;
-
-                // Update progress in DB
-                await db.update(documents)
-                    .set({ processedCount: processedSoFar })
-                    .where(eq(documents.id, documentId));
-
-                const pct = Math.round((processedSoFar / totalChunks) * 100);
-                console.log(`[Processor] 📊 Progress: ${pct}% (${processedSoFar}/${totalChunks})`);
-
-            } catch (e: any) {
-                console.error(`[Processor] ❌ Batch ${batchNum} failed: ${e.message}`);
-                // If we failed a batch, we mark as failed to avoid "stuck" UI
-                throw e; 
+            // If we hit the parallel limit, wait for them to finish before starting more
+            // to avoid hitting the 15 RPM Gemini limit too fast
+            if (batchTasks.length >= PARALLEL_BATCHES) {
+                await Promise.all(batchTasks);
+                batchTasks.length = 0; // Clear array
+                // Small breath to avoid RPM spikes
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
+        }
+
+        // Wait for remaining tasks
+        if (batchTasks.length > 0) {
+            await Promise.all(batchTasks);
         }
 
         const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
         console.log(`[Processor] ✨ Indexing complete for ${documentId} in ${totalTime}s`);
-        
-        // Final status update
         await updateDocStatus(documentId, 'completed', 5);
     } catch (finalError: any) {
-        console.error(`[Processor] 💥 Fatal error during chunks processing:`, finalError.message);
+        console.error(`[Processor] 💥 Fatal indexing error:`, finalError.message);
         await updateDocStatus(documentId, 'failed', 5);
     }
 }
