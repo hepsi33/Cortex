@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
         let docId = '';
         let workspaceId = '';
 
-        const { processUpload, processUrl } = await import('@/lib/processor');
+        const { processUpload, processUrl, processDocumentChunks } = await import('@/lib/processor');
+        const { parsePdf, parseDocx, parsePptx, parseImage, parseText } = await import('@/lib/file-parsers');
 
         if (contentType.includes('multipart/form-data')) {
             const formData = await req.formData();
@@ -51,17 +52,44 @@ export async function POST(req: NextRequest) {
             if (!file) return NextResponse.json({ error: 'No file' }, { status: 400 });
 
             const buffer = Buffer.from(await file.arrayBuffer());
+            const fileType = file.type;
+            
+            // 1. Parse Text IMMEDIATELY (Awaited)
+            let textContent = '';
+            switch (fileType) {
+                case 'application/pdf': textContent = await parsePdf(buffer); break;
+                case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': textContent = await parseDocx(buffer); break;
+                case 'application/vnd.openxmlformats-officedocument.presentationml.presentation': textContent = await parsePptx(buffer); break;
+                case 'image/jpeg':
+                case 'image/png':
+                case 'image/gif':
+                case 'image/webp': textContent = await parseImage(buffer, fileType); break;
+                case 'text/plain':
+                case 'text/markdown':
+                case 'text/csv': textContent = await parseText(buffer); break;
+                default: throw new Error(`Unsupported file type: ${fileType}`);
+            }
+
+            // 2. Insert into DB with content
             const [doc] = await db.insert(documents).values({
                 userId: userId as any,
                 workspaceId: workspaceId || null,
                 name: file.name,
-                content: '',
-                fileType: file.type,
+                content: textContent,
+                fileType: fileType,
                 status: 'indexing',
             }).returning();
 
             docId = doc.id;
-            await processUpload(docId, buffer, file.type, file.name);
+            
+            // 3. Background the heavy embedding
+            (async () => {
+                try {
+                    await processDocumentChunks(docId, textContent);
+                } catch (err) {
+                    console.error('Background indexing failed:', err);
+                }
+            })();
 
         } else {
             const body = await req.json();
@@ -71,6 +99,8 @@ export async function POST(req: NextRequest) {
             if (!url) return NextResponse.json({ error: 'No URL' }, { status: 400 });
 
             const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
+            
+            // For URLs, we still background the whole thing because scraping can be slow
             const [doc] = await db.insert(documents).values({
                 userId: userId as any,
                 workspaceId: workspaceId || null,
@@ -81,10 +111,17 @@ export async function POST(req: NextRequest) {
             }).returning();
 
             docId = doc.id;
-            await processUrl(docId, url);
+            
+            (async () => {
+                try {
+                    await processUrl(docId, url);
+                } catch (err) {
+                    console.error('Background URL processing failed:', err);
+                }
+            })();
         }
 
-        return NextResponse.json({ id: docId, status: 'completed' }, { status: 200 });
+        return NextResponse.json({ id: docId, status: 'indexing' }, { status: 202 });
 
     } catch (error: any) {
         console.error('Upload error:', error);
