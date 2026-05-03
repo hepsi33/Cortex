@@ -205,63 +205,60 @@ export async function processDocumentChunks(documentId: string, textContent: str
     const BATCH_SIZE = 100;
     let processedSoFar = 0;
 
-    for (let batchStart = 0; batchStart < totalChunks; batchStart += BATCH_SIZE) {
-        const batchEnd = Math.min(batchStart + BATCH_SIZE, totalChunks);
-        const batchTexts = chunks.slice(batchStart, batchEnd).map(c => c.pageContent);
-        const batchNum = Math.floor(batchStart / BATCH_SIZE) + 1;
-        const totalBatches = Math.ceil(totalChunks / BATCH_SIZE);
+    try {
+        for (let batchStart = 0; batchStart < totalChunks; batchStart += BATCH_SIZE) {
+            const batchEnd = Math.min(batchStart + BATCH_SIZE, totalChunks);
+            const batchTexts = chunks.slice(batchStart, batchEnd).map(c => c.pageContent);
+            const batchNum = Math.floor(batchStart / BATCH_SIZE) + 1;
+            const totalBatches = Math.ceil(totalChunks / BATCH_SIZE);
 
-        // Rely on batchEmbed's internal retry/delay logic for 429s.
-        // This makes small/medium docs instant again.
+            // Rely on batchEmbed's internal retry/delay logic for 429s.
+            // This makes small/medium docs instant again.
 
-        try {
-            console.log(`[Processor] 📡 Embedding batch ${batchNum}/${totalBatches}...`);
-            const embedStart = Date.now();
-            const vectors = await batchEmbed(batchTexts);
-            console.log(`[Processor] ⚡ Embedded ${vectors.length} chunks in ${Date.now() - embedStart}ms`);
+            try {
+                console.log(`[Processor] 📡 Embedding batch ${batchNum}/${totalBatches}...`);
+                const embedStart = Date.now();
+                const vectors = await batchEmbed(batchTexts);
+                console.log(`[Processor] ⚡ Embedded ${vectors.length} chunks in ${Date.now() - embedStart}ms`);
 
-            // Prepare all rows for this batch
-            const rows = vectors.map((vector, i) => ({
-                documentId,
-                content: batchTexts[i],
-                metadata: { chunkIndex: batchStart + i },
-                vector
-            }));
+                // Prepare all rows for this batch
+                const rows = vectors.map((vector, i) => ({
+                    documentId,
+                    content: batchTexts[i],
+                    metadata: { chunkIndex: batchStart + i },
+                    vector
+                }));
 
-            // Bulk insert all 100 rows at once for speed
-            console.log(`[Processor] 💾 Saving to database...`);
-            const dbStart = Date.now();
-            await db.insert(embeddings).values(rows);
-            console.log(`[Processor] ✅ Database sync complete (${Date.now() - dbStart}ms)`);
+                // Bulk insert all 100 rows at once for speed
+                console.log(`[Processor] 💾 Saving to database...`);
+                const dbStart = Date.now();
+                await db.insert(embeddings).values(rows);
+                console.log(`[Processor] ✅ Database sync complete (${Date.now() - dbStart}ms)`);
 
-            processedSoFar += vectors.length;
+                processedSoFar += vectors.length;
 
-            for (let i = 0; i < 3; i++) {
-                try {
-                    await db.update(documents)
-                        .set({ processedCount: processedSoFar })
-                        .where(eq(documents.id, documentId));
-                    break;
-                } catch (e: any) {
-                    console.warn(`[Processor] Progress update retry ${i+1}/3 for ${documentId}: ${e.message}`);
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                }
+                // Update progress in DB
+                await db.update(documents)
+                    .set({ processedCount: processedSoFar })
+                    .where(eq(documents.id, documentId));
+
+                const pct = Math.round((processedSoFar / totalChunks) * 100);
+                console.log(`[Processor] 📊 Progress: ${pct}% (${processedSoFar}/${totalChunks})`);
+
+            } catch (e: any) {
+                console.error(`[Processor] ❌ Batch ${batchNum} failed: ${e.message}`);
+                // If we failed a batch, we mark as failed to avoid "stuck" UI
+                throw e; 
             }
-
-            const pct = Math.round((processedSoFar / totalChunks) * 100);
-            console.log(`[Processor] 📊 Progress: ${pct}% (${processedSoFar}/${totalChunks})`);
-
-        } catch (e: any) {
-            console.error(`[Processor] ❌ Batch ${batchNum} failed: ${e.message}`);
-            // If it's a critical error (not just rate limit), we might want to stop
-            if (e.message.includes('401') || e.message.includes('403')) break;
-            continue;
         }
-    }
 
-    const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`[Processor] ✨ Indexing complete for ${documentId} in ${totalTime}s`);
-    
-    // Final status update with more retries
-    await updateDocStatus(documentId, 'completed', 5);
+        const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`[Processor] ✨ Indexing complete for ${documentId} in ${totalTime}s`);
+        
+        // Final status update
+        await updateDocStatus(documentId, 'completed', 5);
+    } catch (finalError: any) {
+        console.error(`[Processor] 💥 Fatal error during chunks processing:`, finalError.message);
+        await updateDocStatus(documentId, 'failed', 5);
+    }
 }
