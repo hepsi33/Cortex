@@ -26,7 +26,7 @@ interface Document {
     createdAt: string;
 }
 
-export function DocumentManager({ workspaceId }: { workspaceId: string }) {
+export function DocumentManager({ workspaceId }: { workspaceId: string | null }) {
     const [docs, setDocs] = useState<Document[]>([]);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [url, setUrl] = useState("");
@@ -69,7 +69,7 @@ export function DocumentManager({ workspaceId }: { workspaceId: string }) {
             for (const file of Array.from(files)) {
                 const formData = new FormData();
                 formData.append("file", file);
-                formData.append("workspaceId", workspaceId);
+                formData.append("workspaceId", workspaceId || "");
 
                 const res = await uploadDocumentAction(formData);
                 
@@ -95,7 +95,7 @@ export function DocumentManager({ workspaceId }: { workspaceId: string }) {
         try {
             const formData = new FormData();
             formData.append("url", url);
-            formData.append("workspaceId", workspaceId);
+            formData.append("workspaceId", workspaceId || "");
 
             const res = await uploadDocumentAction(formData);
             if (res.success) {

@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 
 import './SoftAurora.css';
 
-function hexToVec3(hex) {
+function hexToVec3(hex: string) {
   const h = hex.replace('#', '');
   return [
     parseInt(h.slice(0, 2), 16) / 255,
@@ -162,8 +162,8 @@ export default function SoftAurora({
   colorSpeed = 1.0,
   enableMouseInteraction = true,
   mouseInfluence = 0.25
-}) {
-  const containerRef = useRef(null);
+}: any) {
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -172,11 +172,11 @@ export default function SoftAurora({
     const gl = renderer.gl;
     gl.clearColor(0, 0, 0, 0);
 
-    let program;
+    let program: Program;
     let currentMouse = [0.5, 0.5];
     let targetMouse = [0.5, 0.5];
 
-    function handleMouseMove(e) {
+    function handleMouseMove(e: MouseEvent) {
       const rect = gl.canvas.getBoundingClientRect();
       targetMouse = [
         (e.clientX - rect.left) / rect.width,
@@ -230,9 +230,9 @@ export default function SoftAurora({
       gl.canvas.addEventListener('mouseleave', handleMouseLeave);
     }
 
-    let animationFrameId;
+    let animationFrameId: number;
 
-    function update(time) {
+    function update(time: number) {
       animationFrameId = requestAnimationFrame(update);
       program.uniforms.uTime.value = time * 0.001;
 
