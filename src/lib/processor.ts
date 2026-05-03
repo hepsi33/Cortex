@@ -126,13 +126,27 @@ export async function processUrl(documentId: string, url: string) {
                 }
 
                 if (!textContent) {
-                    textContent = `Video Title: ${info.basic_info.title}\nDescription: ${info.basic_info.short_description ?? ''}\n\n[Note: Transcript was unavailable.]`;
+                    console.log(`[Processor] Captions unavailable for ${videoId}. Initiating AI Neural Reconstruction...`);
+                    const extractorModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    const prompt = `
+                        This YouTube video has no captions available. 
+                        As an expert AI Study Assistant, I need you to reconstruct the likely content/educational value of this video based on its metadata.
+                        
+                        Title: ${info.basic_info.title}
+                        Description: ${info.basic_info.short_description ?? 'No description'}
+                        Author: ${info.basic_info.author ?? 'Unknown'}
+                        
+                        Please provide a detailed "Artificial Transcript" or "Knowledge Synthesis" that represents what this video covers. 
+                        Format it as a clean, long-form text that I can index for RAG.
+                        Include key topics, potential takeaways, and a structured breakdown of the subject matter.
+                    `;
+                    const result = await extractorModel.generateContent(prompt);
+                    textContent = `[AI RECONSTRUCTED TRANSCRIPT - NO NATIVE CAPTIONS]\n\n${result.response.text()}`;
                 }
-            } catch (err) {
-                console.warn(`[Processor] youtubei.js failed, trying youtube-transcript...`);
-                const { YoutubeTranscript } = await import('youtube-transcript');
-                const items = await YoutubeTranscript.fetchTranscript(videoId);
-                textContent = items.map((i: any) => i.text).join(' ');
+            } catch (err: any) {
+                console.warn(`[Processor] Primary YouTube scrapers failed for ${videoId}: ${err.message}. Trying last resort...`);
+                // Final fallback if even the metadata scraper fails
+                textContent = `Title: ${title}\nSource: ${url}\n\n[System Note: This video source was protected or unavailable for deep scraping. Please use a different source if detailed transcripts are required.]`;
             }
         } else {
             try {

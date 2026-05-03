@@ -109,6 +109,7 @@ export default function FocusPage() {
     const [totalFocusSeconds, setTotalFocusSeconds] = useState(25 * 60);
     const [completedMilestones, setCompletedMilestones] = useState<number[]>([]);
     const [savedFocusTime, setSavedFocusTime] = useState<number | null>(null);
+    const [breakWarning, setBreakWarning] = useState(false);
 
     const audioElements = useRef<Record<string, HTMLAudioElement>>({});
     const ytPlayers = useRef<Record<string, any>>({});
@@ -250,10 +251,17 @@ export default function FocusPage() {
                         if (totalFocusSeconds <= 120 * 60) {
                             milestones = [Math.floor(totalFocusSeconds / 2)];
                         } else {
-                            // 3h+ sessions: break every 60m
                             for (let m = 60 * 60; m < totalFocusSeconds; m += 60 * 60) {
                                 milestones.push(m);
                             }
+                        }
+
+                        const upcomingMilestone = milestones.find(m => 
+                            !completedMilestones.includes(m) && (m - elapsed) <= 10 && (m - elapsed) > 0
+                        );
+
+                        if (upcomingMilestone) {
+                            setBreakWarning(true);
                         }
 
                         const currentMilestone = milestones.find(m => 
@@ -261,6 +269,7 @@ export default function FocusPage() {
                         );
 
                         if (currentMilestone) {
+                            setBreakWarning(false);
                             setSavedFocusTime(next);
                             setCompletedMilestones([...completedMilestones, currentMilestone]);
                             setIsBreak(true);
@@ -383,6 +392,24 @@ export default function FocusPage() {
                 </motion.div>
 
                 <div className="flex items-center gap-10 -translate-y-6">
+                    <AnimatePresence>
+                        {breakWarning && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 20 }}
+                                className="absolute -top-24 left-1/2 -translate-x-1/2 px-8 py-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 backdrop-blur-3xl flex items-center gap-4 shadow-[0_0_50px_rgba(244,63,94,0.1)]"
+                            >
+                                <div className="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center animate-pulse">
+                                    <Coffee className="w-4 h-4 text-white" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500">Neural Break Soon</span>
+                                    <span className="text-[8px] font-bold text-rose-500/60 uppercase">System entering recovery in 10s...</span>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                     <button
                         onClick={toggleTimer}
                         className={cn(
