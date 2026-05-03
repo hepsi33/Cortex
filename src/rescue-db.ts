@@ -1,51 +1,39 @@
 import 'dotenv/config';
-import postgres from 'postgres';
+import { db } from './lib/db';
+import { sql } from 'drizzle-orm';
 
 async function rescue() {
-    const url = process.env.DATABASE_URL;
-    if (!url) {
-        console.error("No DATABASE_URL found");
-        return;
-    }
-    
-    console.log("🚀 Starting Database Rescue...");
-    const sql = postgres(url, { ssl: 'require' });
+    console.log('🚀 Starting Database Rescue...');
     
     try {
-        console.log("📦 Creating 'profiles' table...");
-        await sql`
-            CREATE TABLE IF NOT EXISTS profiles (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                name TEXT NOT NULL,
-                email TEXT NOT NULL UNIQUE,
-                password TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT 'user',
-                status TEXT NOT NULL DEFAULT 'pending',
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+        // 1. Drop existing embeddings table to reset dimensions correctly
+        console.log('🔄 Dropping old embeddings table...');
+        await db.execute(sql`DROP TABLE IF EXISTS embeddings CASCADE;`);
+        
+        // 2. Re-create the table with correct 768 dimensions
+        console.log('🏗️ Re-creating embeddings table with 768 dimensions...');
+        await db.execute(sql`
+            CREATE TABLE IF NOT EXISTS "embeddings" (
+                "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                "document_id" uuid NOT NULL REFERENCES "documents"("id") ON DELETE CASCADE,
+                "content" text NOT NULL,
+                "metadata" jsonb,
+                "vector" vector(768)
             );
-        `;
-        console.log("✅ 'profiles' table created successfully!");
-
-        console.log("🔗 Updating foreign keys in other tables...");
+        `);
         
-        // Update workspaces
-        await sql`ALTER TABLE IF EXISTS workspaces DROP CONSTRAINT IF EXISTS workspaces_user_id_users_id_fk;`.catch(() => {});
-        await sql`ALTER TABLE IF EXISTS workspaces ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES profiles(id) ON DELETE CASCADE;`.catch(() => {});
-        
-        // Update documents
-        await sql`ALTER TABLE IF EXISTS documents DROP CONSTRAINT IF EXISTS documents_user_id_users_id_fk;`.catch(() => {});
-        await sql`ALTER TABLE IF EXISTS documents ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES profiles(id) ON DELETE CASCADE;`.catch(() => {});
+        // 3. Create HNSW index for fast search
+        console.log('⚡ Creating HNSW vector index...');
+        await db.execute(sql`
+            CREATE INDEX IF NOT EXISTS "embeddings_vector_idx" ON "embeddings" 
+            USING hnsw ("vector" vector_cosine_ops);
+        `);
 
-        // Update chats
-        await sql`ALTER TABLE IF EXISTS chats DROP CONSTRAINT IF EXISTS chats_user_id_users_id_fk;`.catch(() => {});
-        await sql`ALTER TABLE IF EXISTS chats ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES profiles(id) ON DELETE CASCADE;`.catch(() => {});
-
-        console.log("🎉 Database Rescue Complete! You can now use the app.");
-        
-    } catch (err) {
-        console.error("❌ Rescue Failed:", err);
-    } finally {
-        await sql.end();
+        console.log('✅ Database Rescue Complete! Vector dimensions are now 768.');
+        process.exit(0);
+    } catch (error) {
+        console.error('❌ Rescue failed:', error);
+        process.exit(1);
     }
 }
 

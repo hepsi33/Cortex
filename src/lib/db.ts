@@ -14,7 +14,7 @@ if (!process.env.DATABASE_URL) {
 const connectionString = process.env.DATABASE_URL;
 const client = global.postgresClient || postgres(connectionString, { 
     ssl: 'require',
-    max: 10, // Limit connections to prevent saturation
+    max: 2, // Optimized for serverless (prevent connection saturation)
     idle_timeout: 20,
     connect_timeout: 30
 });
