@@ -101,15 +101,22 @@ export async function POST(req: Request) {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-      const systemPrompt = "You are an expert tutor. Create concise, high-impact study notes. Use markdown with bold headers and bullet points.";
+      const systemPrompt = "You are an expert tutor. Create concise, high-impact study notes. Use markdown with bold headers and bullet points. IMPORTANT: RETURN ONLY THE NOTES. NO CONVERSATIONAL FILLER. NO INTRODUCTIONS. NO 'OKAY' OR 'HERE IS THE SUMMARY'. START IMMEDIATELY WITH THE CONTENT.";
       const userPrompt = isMetadataFallback 
-        ? `This video has NO captions available. Using the metadata below, reconstruct a detailed study guide or overview of what this video likely covers. Be thorough and expert.
+        ? `[NO TRANSCRIPT AVAILABLE]
+           Based on the following metadata, reconstruct a comprehensive study guide or conceptual overview. 
+           Do not mention the lack of transcript in the output. Just provide the knowledge.
+           
            Video Title: ${videoTitle}
            Description: ${videoDescription}`
         : `Create detailed study notes for this transcript:\n\n${aiInput.slice(0, 30000)}`;
 
       const result = await model.generateContent([systemPrompt, userPrompt]);
-      notes = result.response.text();
+      let finalNotes = result.response.text();
+      
+      // Post-process to remove common AI intro nonsense if it still appears
+      finalNotes = finalNotes.replace(/^(Okay|Sure|Here is|Based on|I will|Since I cannot|Please note).*?\n/gi, "").trim();
+      notes = finalNotes;
     } catch (geminiErr: any) {
       console.warn(`[AI] Native Gemini failed:`, geminiErr.message);
       

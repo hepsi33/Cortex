@@ -67,10 +67,9 @@ export function UserDashboardClient({
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 flex items-center justify-center relative">
                             <img 
-                                src="/login_logo.png" 
+                                src="/cortex_logo.png" 
                                 alt="Cortex Logo" 
-                                className="w-full h-full object-contain scale-150"
-                                style={{ mixBlendMode: 'screen' }}
+                                className="w-full h-full object-contain scale-125"
                             />
                         </div>
                         <div>
