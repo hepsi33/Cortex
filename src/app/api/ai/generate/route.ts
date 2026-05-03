@@ -43,19 +43,29 @@ export async function POST(req: Request) {
     const videoId = extractVideoId(videoUrl);
     if (!videoId) return NextResponse.json({ error: "Invalid YouTube URL" }, { status: 400 });
 
-    // Parallel fetching for speed with more robust youtubei.js
     let transcript = "";
     let videoTitle = "";
     let videoDescription = "";
+    let videoChapters: any[] = [];
 
     try {
       const { Innertube } = await import("youtubei.js");
       const yt = await Innertube.create();
       const info = await yt.getInfo(videoId);
       
-      // Get basic metadata for fallback
+      // Get deep metadata for fallback
       videoTitle = info.basic_info.title ?? "";
       videoDescription = info.basic_info.short_description ?? "";
+      
+      // Attempt to extract chapters if available
+      try {
+        const primaryInfo = info.primary_info;
+        const secondaryInfo = info.secondary_info;
+        // @ts-ignore
+        videoChapters = info.chapters ?? [];
+      } catch (cErr) {
+        console.warn("[Chapters] Extraction failed:", cErr);
+      }
 
       try {
         const transcriptData = await info.getTranscript();
@@ -79,16 +89,14 @@ export async function POST(req: Request) {
     let aiInput = transcript;
     let isMetadataFallback = false;
     
-    if (!transcript || transcript.length < 50) {
-        if (videoTitle || videoDescription) {
-            console.log(`[AI] Transcript missing for ${videoId}. Initiating Metadata Reconstruction...`);
-            aiInput = `TITLE: ${videoTitle}\n\nDESCRIPTION: ${videoDescription}`;
-            isMetadataFallback = true;
-        } else {
-            // Last resort: AI Reconstruction based on ID if title is also missing (rare)
-            aiInput = `Video ID: ${videoId}. Please synthesize context from this reference if possible.`;
-            isMetadataFallback = true;
-        }
+    if (!transcript || transcript.length < 100) {
+        console.log(`[AI] Deep-diving into metadata for ${videoId}...`);
+        const chaptersText = videoChapters?.length 
+            ? `\n\nCHAPTERS:\n${videoChapters.map(c => `- ${c.title} (${c.time_range.start})`).join("\n")}`
+            : "";
+        
+        aiInput = `TITLE: ${videoTitle}\n\nDESCRIPTION: ${videoDescription}${chaptersText}`;
+        isMetadataFallback = true;
     }
 
     // AI Note Generation
