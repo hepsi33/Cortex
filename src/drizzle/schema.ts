@@ -36,7 +36,7 @@ export const embeddings = pgTable('embeddings', {
     documentId: uuid('document_id').references(() => documents.id, { onDelete: 'cascade' }).notNull(),
     content: text('content').notNull(),
     metadata: jsonb('metadata'),
-    vector: vector('vector', { dimensions: 3072 }), // Gemini gemini-embedding-001 outputs 3072 dims
+    vector: vector('vector', { dimensions: 768 }), // Gemini text-embedding-004 outputs 768 dims
 });
 
 export const chats = pgTable('chats', {

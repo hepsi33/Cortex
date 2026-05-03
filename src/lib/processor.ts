@@ -8,7 +8,7 @@ import { scrapeUrl } from './firecrawl';
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const embeddingModel = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
+const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
 
 /**
  * Batch embed up to 100 texts in a SINGLE API call.

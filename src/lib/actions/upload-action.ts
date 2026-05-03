@@ -48,8 +48,8 @@ export async function uploadDocumentAction(formData: FormData) {
             }).returning();
 
             docId = doc.id;
-            // Run processing in background
-            processUpload(docId, buffer, file.type, file.name).catch(console.error);
+            // Await processing for stability on Vercel
+            await processUpload(docId, buffer, file.type, file.name);
         } else if (url) {
             const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
             const [doc] = await db.insert(documents).values({
@@ -62,7 +62,8 @@ export async function uploadDocumentAction(formData: FormData) {
             }).returning();
 
             docId = doc.id;
-            processUrl(docId, url).catch(console.error);
+            // Await processing for stability on Vercel
+            await processUrl(docId, url);
         } else {
             throw new Error('No file or URL provided');
         }
