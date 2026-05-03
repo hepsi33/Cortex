@@ -65,12 +65,11 @@ export function UserDashboardClient({
                 <header className="absolute top-0 left-0 right-0 p-8 flex items-center justify-between pointer-events-auto">
                     {/* Brand Info */}
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 flex items-center justify-center relative">
+                        <div className="w-16 h-16 flex items-center justify-center relative">
                             <img 
                                 src="/login_logo.png" 
                                 alt="Cortex Logo" 
-                                className="w-full h-full object-contain scale-125"
-                                style={{ mixBlendMode: 'screen' }}
+                                className="w-full h-full object-contain scale-110"
                             />
                         </div>
                         <div>
