@@ -14,7 +14,7 @@ export const authConfig = {
                 token.name = user.name;
                 token.email = user.email;
                 token.role = (user as any).role;
-                token.id = user.id;
+                token.id = user.id ?? "";
                 token.status = (user as any).status;
                 token.isGuest = (user as any).isGuest;
             }
@@ -27,12 +27,12 @@ export const authConfig = {
         },
         async session({ session, token }) {
             if (session.user) {
-                session.user.name = token.name;
-                session.user.email = token.email as string;
-                session.user.role = token.role as string;
-                session.user.id = token.id as string;
-                session.user.status = token.status as string;
-                (session.user as any).isGuest = token.isGuest as boolean;
+                session.user.name = token.name || "";
+                session.user.email = (token.email as string) || "";
+                session.user.role = (token.role as string) || "user";
+                session.user.id = (token.id as string) || "";
+                session.user.status = (token.status as string) || "pending";
+                (session.user as any).isGuest = !!token.isGuest;
             }
             return session;
         },
