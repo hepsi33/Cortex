@@ -66,13 +66,14 @@ export async function scrapeUrl(url: string): Promise<string> {
             formats: ['markdown']
         });
 
-        // @ts-ignore
-        if (!response.success && !response.markdown) {
-            console.warn('Firecrawl scrape failed:', response);
+        // Firecrawl v4 response handling — safely extract markdown
+        const markdown = (response as any)?.markdown || '';
+        if (!markdown) {
+            console.warn('Firecrawl scrape returned empty markdown:', Object.keys(response));
             return '';
         }
 
-        return response.markdown || '';
+        return markdown;
 
     } catch (error) {
         console.error('Firecrawl scrape error:', error);

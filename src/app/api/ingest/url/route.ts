@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
             name: url,
             content: content,
             fileType: 'url',
-            status: 'pending',
+            status: 'indexing',
         }).returning();
 
         const { processDocumentChunks } = await import('@/lib/processor');

@@ -101,6 +101,7 @@ export async function POST(req: Request) {
 
     // AI Note Generation
     let notes = "";
+    let noteSource: 'gemini' | 'openrouter' | 'local' = 'local';
     
     try {
       // Primary: Use Project's Native Gemini API
@@ -125,6 +126,7 @@ export async function POST(req: Request) {
       // Post-process to remove common AI intro nonsense if it still appears
       finalNotes = finalNotes.replace(/^(Okay|Sure|Here is|Based on|I will|Since I cannot|Please note).*?\n/gi, "").trim();
       notes = finalNotes;
+      noteSource = 'gemini';
     } catch (geminiErr: any) {
       console.warn(`[AI] Native Gemini failed:`, geminiErr.message);
       
@@ -151,7 +153,10 @@ export async function POST(req: Request) {
             temperature: 0.3,
           });
           notes = completion?.choices?.[0]?.message?.content ?? "";
-          if (notes) break;
+          if (notes) {
+            noteSource = 'openrouter';
+            break;
+          }
         } catch (err: any) {
           console.warn(`[AI] Fallback model ${model} failed:`, err.message);
         }
@@ -177,7 +182,8 @@ export async function POST(req: Request) {
     return NextResponse.json({
       notes,
       totalMs: Date.now() - t0,
-      isLocal: true
+      source: noteSource,
+      isLocal: noteSource === 'local'
     });
 
   } catch (e: any) {

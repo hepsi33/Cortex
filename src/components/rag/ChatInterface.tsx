@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Send, Loader2, Sparkles, User, Bot, Globe, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ export function ChatInterface({ workspaceId, chatId, mode = 'strict' }: ChatInte
     const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
     const scrollRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const sendMessageRef = useRef<(content: string) => void>(() => {});
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -36,15 +37,22 @@ export function ChatInterface({ workspaceId, chatId, mode = 'strict' }: ChatInte
         scrollToBottom();
     }, [messages]);
 
+    // Keep sendMessageRef always pointing to the latest sendMessage
+    useEffect(() => {
+        sendMessageRef.current = sendMessage;
+    });
+
     useEffect(() => {
         if (chatId) fetchMessages();
-        
+    }, [chatId]);
+
+    useEffect(() => {
         const handleDocSelection = (e: any) => {
             setSelectedDocIds(e.detail || []);
         };
         const handleChatAction = (e: any) => {
             const prompt = e.detail;
-            if (prompt) sendMessage(prompt);
+            if (prompt) sendMessageRef.current(prompt);
         };
 
         window.addEventListener('selected-docs-changed', handleDocSelection);
@@ -53,7 +61,7 @@ export function ChatInterface({ workspaceId, chatId, mode = 'strict' }: ChatInte
             window.removeEventListener('selected-docs-changed', handleDocSelection);
             window.removeEventListener('trigger-chat-action', handleChatAction);
         };
-    }, [chatId, workspaceId, selectedDocIds]);
+    }, []);
 
     const fetchMessages = async () => {
         try {
