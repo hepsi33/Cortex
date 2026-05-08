@@ -67,12 +67,14 @@ export function UserDashboardClient({
                     <div className="flex items-center gap-4">
                         <div className="relative group cursor-target">
                             <div className="absolute inset-0 bg-[#e100ff]/10 blur-xl rounded-full transition-all duration-700" />
-                            <div className="relative w-16 h-16 flex items-center justify-center overflow-hidden">
-                                <img 
+                            <div className="relative w-16 h-16 flex items-center justify-center">
+                                <Image 
                                     src="/login_logo.png" 
                                     alt="Cortex Logo" 
-                                    className="w-full h-full object-contain scale-125"
-                                    style={{ imageRendering: 'high-quality' as any, mixBlendMode: 'screen' }}
+                                    width={64}
+                                    height={64}
+                                    priority
+                                    className="object-contain scale-125"
                                 />
                             </div>
                         </div>
