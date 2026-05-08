@@ -19,7 +19,9 @@ async function batchEmbed(texts: string[], maxRetries = 4): Promise<number[][]> 
         try {
             const result = await embeddingModel.batchEmbedContents({
                 requests: texts.map(text => ({
-                    content: { parts: [{ text }], role: 'user' as const }
+                    model: "models/gemini-embedding-001",
+                    content: { parts: [{ text }] },
+                    taskType: 'RETRIEVAL_DOCUMENT' as any
                 }))
             });
             return result.embeddings.map(e => e.values);
@@ -86,7 +88,10 @@ export async function processUpload(documentId: string, buffer: Buffer, fileType
             .set({ content: textContent })
             .where(eq(documents.id, documentId));
 
-        await processDocumentChunks(documentId, textContent);
+        // Trigger indexing in background (don't await)
+        processDocumentChunks(documentId, textContent).catch(err => {
+            console.error(`[Processor] Background indexing failed for ${documentId}:`, err);
+        });
 
         console.log(`[Processor] ✅ Done: ${originalName}`);
 
@@ -180,7 +185,10 @@ export async function processUrl(documentId: string, url: string) {
 
         await updateDocStatus(documentId, 'indexing');
 
-        await processDocumentChunks(documentId, textContent);
+        // Trigger indexing in background (don't await)
+        processDocumentChunks(documentId, textContent).catch(err => {
+            console.error(`[Processor] Background indexing failed for URL ${documentId}:`, err);
+        });
         console.log(`[Processor] ✅ URL Done: ${url}`);
 
     } catch (error: any) {

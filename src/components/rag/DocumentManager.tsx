@@ -41,22 +41,31 @@ export function DocumentManager({ workspaceId }: { workspaceId: string | null })
         window.dispatchEvent(new CustomEvent('selected-docs-changed', { detail: [] }));
     }, [workspaceId]);
 
+    const [isFetching, setIsFetching] = useState(false);
+
     useEffect(() => {
         if (!workspaceId) return;
         fetchDocs();
-        const interval = setInterval(fetchDocs, 5000);
+        const interval = setInterval(fetchDocs, 10000); // Increased to 10s to be safer
         return () => clearInterval(interval);
     }, [workspaceId]);
 
     const fetchDocs = async () => {
+        if (isFetching) return;
+        setIsFetching(true);
         try {
             const res = await fetch(`/api/documents?workspaceId=${workspaceId}`);
+            if (!res.ok) {
+                console.warn(`[Docs] Fetch failed: ${res.status} ${res.statusText}`);
+                return;
+            }
             const data = await res.json();
             if (Array.isArray(data)) setDocs(data);
         } catch (err) {
-            console.error(err);
+            console.error('[Docs] Failed to fetch documents:', err);
         } finally {
             setLoading(false);
+            setIsFetching(false);
         }
     };
 

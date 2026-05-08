@@ -45,9 +45,9 @@ export async function POST(req: NextRequest) {
         const { processDocumentChunks } = await import('@/lib/processor');
 
         // Await processing to prevent Vercel from killing the task
-        await processDocumentChunks(doc.id, content);
+        processDocumentChunks(doc.id, content).catch(e => console.error(e));
 
-        return NextResponse.json({ id: doc.id, status: 'completed' }, { status: 200 });
+        return NextResponse.json({ id: doc.id, status: 'indexing' }, { status: 200 });
 
     } catch (error) {
         console.error('URL ingest error:', error);

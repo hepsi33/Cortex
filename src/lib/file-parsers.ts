@@ -12,22 +12,57 @@ export async function parsePdf(buffer: Buffer): Promise<string> {
     try {
         const { PDFParse } = await import('pdf-parse');
         
-        // pdf-parse v2 requires Uint8Array, not Buffer
         const uint8 = new Uint8Array(buffer);
         const parser = new PDFParse(uint8);
         const result = await parser.getText();
-        const text = result.text;
+        let text = result.text;
         
-        if (!text || text.trim().length < 10) {
-            throw new Error(`PDF parsed but content too short (${text?.length || 0} chars). May be image-only.`);
+        // Detect 'page numbers only' or empty content
+        const textWithoutMarkers = text.replace(/--\s*\d+\s*of\s*\d+\s*--/g, '').trim();
+        const looksLikePageNumbersOnly = textWithoutMarkers.length < 200 && text.includes('--');
+
+        if (!text || text.trim().length < 50 || looksLikePageNumbersOnly) {
+            console.log(`[Parser] PDF text is sparse (${text?.length || 0} chars) or malformed. Using Gemini Vision fallback...`);
+            try {
+                text = await parsePdfWithGemini(buffer);
+                console.log(`[Parser] Gemini Vision success: ${text.length} chars extracted`);
+            } catch (geminiErr: any) {
+                console.error(`[Parser] Gemini PDF fallback failed:`, geminiErr.message);
+                if (!text || text.trim().length < 10) throw geminiErr;
+                // If we have some text (even if it's just page numbers), return it if Gemini fails
+            }
         }
 
-        console.log(`[Parser] PDF parsed: ${result.pages} pages, ${text.length} chars`);
+        console.log(`[Parser] PDF parsed: ${text.length} chars extracted`);
         return text;
     } catch (err: any) {
         console.error(`[Parser] PDF parse error:`, err.message);
         throw err;
     }
+}
+
+async function parsePdfWithGemini(buffer: Buffer): Promise<string> {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    
+    // For very large PDFs, we might need to limit the size to avoid payload limits
+    // but 1.5 Flash handles up to 200MB. base64 adds ~33% overhead.
+    if (buffer.length > 50 * 1024 * 1024) {
+        console.warn("[Parser] PDF is very large for Gemini fallback. Using first 20MB.");
+        buffer = buffer.subarray(0, 20 * 1024 * 1024);
+    }
+
+    const result = await model.generateContent([
+        {
+            inlineData: {
+                data: buffer.toString('base64'),
+                mimeType: "application/pdf"
+            }
+        },
+        "Extract all the text from this PDF exactly as it appears. If there are images or diagrams, describe them. Maintain headings and structure."
+    ]);
+
+    const response = await result.response;
+    return response.text();
 }
 
 export async function parseDocx(buffer: Buffer): Promise<string> {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { documents, profiles } from '@/drizzle/schema';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, isNull } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 
 const isValidUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -43,9 +43,9 @@ export async function GET(req: NextRequest) {
         const docs = await db.query.documents.findMany({
             where: and(
                 eq(documents.userId, userId as any),
-                workspaceId && workspaceId !== 'null' && isValidUuid(workspaceId) 
+                workspaceId && workspaceId !== 'null' && workspaceId !== 'undefined' && isValidUuid(workspaceId) 
                     ? eq(documents.workspaceId, workspaceId) 
-                    : eq(documents.workspaceId, null as any) // Only show non-workspace docs if no workspace provided
+                    : isNull(documents.workspaceId)
             ),
             orderBy: [desc(documents.createdAt)],
         });

@@ -79,65 +79,42 @@ export async function POST(req: NextRequest) {
                     eq(documents.workspaceId, workspaceId),
                     selectedDocIds && selectedDocIds.length > 0 ? inArray(documents.id, selectedDocIds) : undefined
                 ),
-                columns: { id: true, name: true }
+                columns: { id: true, name: true, content: true }
             });
 
-            const docIds = workspaceDocs.map(d => d.id);
-            const docMap = new Map(workspaceDocs.map(d => [d.id, d.name]));
+            // Strategy A1: 'Neural Hot-Loading' (Full context if small enough)
+            const totalContentLength = workspaceDocs.reduce((acc, doc) => acc + (doc.content?.length || 0), 0);
+            
+            if (totalContentLength > 0 && totalContentLength < 100000) {
+                console.log(`[Chat] 🚀 Using Neural Hot-Loading for ${workspaceDocs.length} docs (${totalContentLength} chars)`);
+                contextText = workspaceDocs.map(doc => `[Full Document: ${doc.name}]\n${doc.content}`).join('\n\n---\n\n');
+                workspaceDocs.forEach(d => sourceNames.add(d.name));
+            } else {
+                // Strategy A2: Standard RAG (Vector Search) for large docs
+                const docIds = workspaceDocs.map(d => d.id);
+                const docMap = new Map(workspaceDocs.map(d => [d.id, d.name]));
 
-            if (docIds.length > 0) {
-                relevantChunks = await db.select({
-                    content: embeddings.content,
-                    metadata: embeddings.metadata,
-                    documentId: embeddings.documentId,
-                    dist: sql<number>`${embeddings.vector} <=> ${JSON.stringify(queryVector)}`
-                })
-                    .from(embeddings)
-                    .where(inArray(embeddings.documentId, docIds))
-                    .orderBy(sql`${embeddings.vector} <=> ${JSON.stringify(queryVector)}`)
-                    .limit(5);
-
-                // Check relevance (threshold < 0.7 distance roughly implies good match)
-                // If best match is poor (> 0.7 distance), fall back to global
-                const bestMatch = relevantChunks[0]?.dist || 1;
-
-                // Strategy B: Global Fallback
-                if (bestMatch > 0.75 && !isGuest) {
-                    console.log("Workspace match poor, trying global search...");
-                    const globalChunks = await db.select({
+                if (docIds.length > 0) {
+                    relevantChunks = await db.select({
                         content: embeddings.content,
                         metadata: embeddings.metadata,
                         documentId: embeddings.documentId,
                         dist: sql<number>`${embeddings.vector} <=> ${JSON.stringify(queryVector)}`
                     })
                         .from(embeddings)
-                        // We need to join documents to ensure user owns them
-                        .innerJoin(documents, eq(embeddings.documentId, documents.id))
-                        .where(eq(documents.userId, session.user.id))
+                        .where(inArray(embeddings.documentId, docIds))
                         .orderBy(sql`${embeddings.vector} <=> ${JSON.stringify(queryVector)}`)
-                        .limit(5);
+                        .limit(8); // Increased from 5 for better context
+                    
+                    const docContext = relevantChunks.map((chunk) => {
+                        const docName = docMap.get(chunk.documentId) || 'Unknown Doc';
+                        sourceNames.add(docName);
+                        return `[Document Snippet: ${docName}] ${chunk.content}`;
+                    }).join('\n\n');
 
-                    if (globalChunks.length > 0 && (globalChunks[0].dist < bestMatch)) {
-                        relevantChunks = globalChunks;
-                        // Update docMap for global results
-                        const globalDocIds = globalChunks.map(c => c.documentId);
-                        const globalDocs = await db.query.documents.findMany({
-                            where: inArray(documents.id, globalDocIds),
-                            columns: { id: true, name: true }
-                        });
-                        globalDocs.forEach(d => docMap.set(d.id, d.name));
-                    }
+                    contextText = docContext;
                 }
             }
-
-            // Formatting Context from Docs
-            const docContext = relevantChunks.map((chunk, index) => {
-                const docName = docMap.get(chunk.documentId) || 'Unknown Doc';
-                sourceNames.add(docName);
-                return `[Document: ${docName}] ${chunk.content}`;
-            }).join('\n\n');
-
-            contextText += docContext;
         }
 
         if (isGuest && !contextText) {

@@ -84,7 +84,10 @@ export async function POST(req: NextRequest) {
             docId = doc.id;
             
             // 3. Process the heavy embedding (Awaited for stability)
-            await processDocumentChunks(docId, textContent);
+            // 3. Process the heavy embedding (Background)
+            processDocumentChunks(docId, textContent).catch(err => {
+                console.error("Background indexing failed:", err);
+            });
 
         } else {
             const body = await req.json();
@@ -108,10 +111,13 @@ export async function POST(req: NextRequest) {
             docId = doc.id;
             
             // 4. Await full processing
-            await processUrl(docId, url);
+            // 4. Trigger processing (Background)
+            processUrl(docId, url).catch(err => {
+                console.error("Background URL processing failed:", err);
+            });
         }
 
-        return NextResponse.json({ id: docId, status: 'completed' }, { status: 200 });
+        return NextResponse.json({ id: docId, status: 'indexing' }, { status: 200 });
 
     } catch (error: any) {
         console.error('Upload error:', error);
