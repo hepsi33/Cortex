@@ -86,7 +86,7 @@ export default function LoginPage() {
                             <div className="absolute inset-0 bg-[#e100ff]/20 blur-2xl rounded-full group-hover:bg-[#e100ff]/40 transition-all duration-700" />
                             <div className="relative w-32 h-32 flex items-center justify-center overflow-hidden">
                                 <img 
-                                    src="/login_logo.png" 
+                                    src="/login_logo.jpg" 
                                     alt="Cortex Logo" 
                                     className="w-full h-full object-contain scale-125"
                                     style={{ imageRendering: 'high-quality' as any, mixBlendMode: 'screen' }} 
