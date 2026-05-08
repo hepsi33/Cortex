@@ -69,10 +69,10 @@ export function UserDashboardClient({
                             <div className="absolute inset-0 bg-[#e100ff]/10 blur-xl rounded-full transition-all duration-700" />
                             <div className="relative w-12 h-12 flex items-center justify-center overflow-hidden">
                                 <img 
-                                    src="/cortex_logo.png" 
+                                    src="/login_logo.png" 
                                     alt="Cortex Logo" 
-                                    className="w-full h-full object-contain scale-110"
-                                    style={{ imageRendering: 'high-quality' as any }}
+                                    className="w-full h-full object-contain scale-125"
+                                    style={{ imageRendering: 'high-quality' as any, mixBlendMode: 'screen' }}
                                 />
                             </div>
                         </div>
