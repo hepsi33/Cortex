@@ -91,12 +91,20 @@ export async function POST(req: Request) {
     
     if (!transcript || transcript.length < 100) {
         console.log(`[AI] Deep-diving into metadata for ${videoId}...`);
+        
+        // If we have absolutely nothing, try one last check on the title
+        if (!videoTitle) videoTitle = "Unknown YouTube Video";
+
         const chaptersText = videoChapters?.length 
             ? `\n\nCHAPTERS:\n${videoChapters.map(c => `- ${c.title} (${c.time_range.start})`).join("\n")}`
             : "";
         
         aiInput = `TITLE: ${videoTitle}\n\nDESCRIPTION: ${videoDescription}${chaptersText}`;
         isMetadataFallback = true;
+    }
+
+    if (!transcript && !videoDescription && videoTitle === "Unknown YouTube Video") {
+        return NextResponse.json({ error: "Could not extract any content from this video. It might be private or restricted." }, { status: 400 });
     }
 
     // AI Note Generation
@@ -112,9 +120,9 @@ export async function POST(req: Request) {
 
       const systemPrompt = "You are an expert tutor. Create concise, high-impact study notes. Use markdown with bold headers and bullet points. IMPORTANT: RETURN ONLY THE NOTES. NO CONVERSATIONAL FILLER. NO INTRODUCTIONS. NO 'OKAY' OR 'HERE IS THE SUMMARY'. START IMMEDIATELY WITH THE CONTENT.";
       const userPrompt = isMetadataFallback 
-        ? `[NO TRANSCRIPT AVAILABLE]
-           Based on the following metadata, reconstruct a comprehensive study guide or conceptual overview. 
-           Do not mention the lack of transcript in the output. Just provide the knowledge.
+        ? `[EMERGENCY METADATA FALLBACK]
+           I was unable to get the transcript. You MUST create a high-level summary based ONLY on this title and description. 
+           Do NOT say you need more info. Do NOT say you can't do it. Just provide a conceptual overview of what this video is likely about based on these details:
            
            Video Title: ${videoTitle}
            Description: ${videoDescription}`
