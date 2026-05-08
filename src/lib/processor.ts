@@ -20,7 +20,7 @@ async function batchEmbed(texts: string[], maxRetries = 4): Promise<number[][]> 
             const result = await embeddingModel.batchEmbedContents({
                 requests: texts.map(text => ({
                     model: "models/gemini-embedding-001",
-                    content: { parts: [{ text }] },
+                    content: { role: 'user', parts: [{ text }] },
                     taskType: 'RETRIEVAL_DOCUMENT' as any
                 }))
             });
