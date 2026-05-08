@@ -67,7 +67,7 @@ export function UserDashboardClient({
                     <div className="flex items-center gap-4">
                         <div className="relative group cursor-target">
                             <div className="absolute inset-0 bg-[#e100ff]/10 blur-xl rounded-full transition-all duration-700" />
-                            <div className="relative w-12 h-12 flex items-center justify-center overflow-hidden">
+                            <div className="relative w-16 h-16 flex items-center justify-center overflow-hidden">
                                 <img 
                                     src="/login_logo.png" 
                                     alt="Cortex Logo" 
