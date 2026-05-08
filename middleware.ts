@@ -43,12 +43,7 @@ export default auth((req) => {
         return NextResponse.redirect(new URL("/dashboard", req.nextUrl));
     }
 
-    // 4. Redirect pending users away from /dashboard
-    if (pathname.startsWith("/dashboard") && req.auth?.user?.status === "pending") {
-        return NextResponse.redirect(new URL("/pending", req.nextUrl));
-    }
-
-    // 5. Allow everything else (Landing, Get Started, Pending, etc.)
+    // 4. Allow everything else (Landing, Get Started, etc.)
     return null;
 });
 
