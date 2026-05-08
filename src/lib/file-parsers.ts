@@ -11,7 +11,6 @@ export async function parsePdf(buffer: Buffer): Promise<string> {
 
     try {
         const { PDFParse } = await import('pdf-parse');
-        
         const uint8 = new Uint8Array(buffer);
         const parser = new PDFParse(uint8);
         const result = await parser.getText();
@@ -22,22 +21,20 @@ export async function parsePdf(buffer: Buffer): Promise<string> {
         const looksLikePageNumbersOnly = textWithoutMarkers.length < 200 && text.includes('--');
 
         if (!text || text.trim().length < 50 || looksLikePageNumbersOnly) {
-            console.log(`[Parser] PDF text is sparse (${text?.length || 0} chars) or malformed. Using Gemini Vision fallback...`);
-            try {
-                text = await parsePdfWithGemini(buffer);
-                console.log(`[Parser] Gemini Vision success: ${text.length} chars extracted`);
-            } catch (geminiErr: any) {
-                console.error(`[Parser] Gemini PDF fallback failed:`, geminiErr.message);
-                if (!text || text.trim().length < 10) throw geminiErr;
-                // If we have some text (even if it's just page numbers), return it if Gemini fails
-            }
+            console.log(`[Parser] PDF text is sparse or malformed. Trying Gemini Vision...`);
+            return await parsePdfWithGemini(buffer);
         }
 
         console.log(`[Parser] PDF parsed: ${text.length} chars extracted`);
         return text;
     } catch (err: any) {
-        console.error(`[Parser] PDF parse error:`, err.message);
-        throw err;
+        console.warn(`[Parser] Standard PDF parse failed (${err.message}). Trying Gemini Vision fallback...`);
+        try {
+            return await parsePdfWithGemini(buffer);
+        } catch (geminiErr: any) {
+            console.error(`[Parser] All PDF extraction methods failed:`, geminiErr.message);
+            throw new Error(`Could not read this PDF. It may be corrupted or protected.`);
+        }
     }
 }
 
