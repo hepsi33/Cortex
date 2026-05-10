@@ -19,6 +19,7 @@ const features = [
 export default function PricingPage() {
     const [loading, setLoading] = useState(false);
     const [showContactMsg, setShowContactMsg] = useState(false);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     // Load Razorpay script on mount
     useEffect(() => {
@@ -36,6 +37,7 @@ export default function PricingPage() {
             return;
         }
         setLoading(true);
+        setErrorMsg(null);
         try {
             // Step 1: Create order on server
             const res = await fetch('/api/billing/checkout', { method: 'POST' });
@@ -43,10 +45,12 @@ export default function PricingPage() {
 
             if (!data.orderId) {
                 if (data.isGuest) {
-                    alert('You must sign up for an account to purchase Pro. Redirecting to signup...');
-                    window.location.href = '/login?mode=signup';
+                    setErrorMsg('You must create an account to purchase Pro. Redirecting to signup...');
+                    setTimeout(() => {
+                        window.location.href = '/login?mode=signup';
+                    }, 2000);
                 } else {
-                    alert(data.error || 'Failed to create order');
+                    setErrorMsg(data.error || 'Failed to create order');
                 }
                 setLoading(false);
                 return;
@@ -75,7 +79,7 @@ export default function PricingPage() {
                     if (result.success) {
                         window.location.href = '/dashboard?upgraded=true';
                     } else {
-                        alert('Payment verification failed. Contact support.');
+                        setErrorMsg('Payment verification failed. Please contact support.');
                     }
                 },
                 prefill: {},
@@ -90,7 +94,7 @@ export default function PricingPage() {
             const rzp = new (window as any).Razorpay(options);
             rzp.open();
         } catch (e) {
-            alert('Failed to start checkout');
+            setErrorMsg('Failed to start checkout process.');
             setLoading(false);
         }
     };
@@ -163,6 +167,12 @@ export default function PricingPage() {
                         <Zap className="w-4 h-4" />
                         {loading ? 'Processing...' : 'Upgrade to Pro'}
                     </button>
+                    {errorMsg && (
+                        <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
+                            className="text-rose-400 bg-rose-500/10 border border-rose-500/20 px-4 py-3 rounded-xl text-xs font-bold text-center leading-relaxed">
+                            {errorMsg}
+                        </motion.div>
+                    )}
                     <div className="space-y-4">
                         {features.map((f) => (
                             <div key={f.name} className="flex items-center justify-between text-sm">
