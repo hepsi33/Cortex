@@ -1,7 +1,11 @@
 import mammoth from 'mammoth';
 import officeParser from 'officeparser';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleAIFileManager } from '@google/generative-ai/server';
 import JSZip from 'jszip';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -40,26 +44,41 @@ export async function parsePdf(buffer: Buffer): Promise<string> {
 
 async function parsePdfWithGemini(buffer: Buffer): Promise<string> {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-    
-    // For very large PDFs, we might need to limit the size to avoid payload limits
-    // but 2.0 Flash handles large contexts nicely. base64 adds ~33% overhead.
-    if (buffer.length > 50 * 1024 * 1024) {
-        console.warn("[Parser] PDF is very large for Gemini fallback. Using first 20MB.");
-        buffer = buffer.subarray(0, 20 * 1024 * 1024);
+    const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY!);
+
+    // Save buffer to a temporary file for the File API
+    const tempPath = path.join(os.tmpdir(), `cortex-temp-${Date.now()}-${Math.random().toString(36).substring(7)}.pdf`);
+    fs.writeFileSync(tempPath, buffer);
+
+    try {
+        console.log(`[Parser] Uploading ${(buffer.length / 1024 / 1024).toFixed(1)}MB PDF to Gemini File API...`);
+        const uploadResult = await fileManager.uploadFile(tempPath, {
+            mimeType: "application/pdf",
+            displayName: "Document",
+        });
+
+        console.log(`[Parser] File uploaded to Gemini. Processing...`);
+        const result = await model.generateContent([
+            {
+                fileData: {
+                    mimeType: uploadResult.file.mimeType,
+                    fileUri: uploadResult.file.uri
+                }
+            },
+            "Extract all the text from this PDF exactly as it appears. If there are images or diagrams, describe them. Maintain headings and structure."
+        ]);
+
+        // Clean up from Google servers asynchronously
+        fileManager.deleteFile(uploadResult.file.name).catch(e => console.warn("Failed to delete from Gemini server", e));
+
+        const response = await result.response;
+        return response.text();
+    } finally {
+        // Always clean up local temp file
+        if (fs.existsSync(tempPath)) {
+            fs.unlinkSync(tempPath);
+        }
     }
-
-    const result = await model.generateContent([
-        {
-            inlineData: {
-                data: buffer.toString('base64'),
-                mimeType: "application/pdf"
-            }
-        },
-        "Extract all the text from this PDF exactly as it appears. If there are images or diagrams, describe them. Maintain headings and structure."
-    ]);
-
-    const response = await result.response;
-    return response.text();
 }
 
 export async function parseDocx(buffer: Buffer): Promise<string> {
