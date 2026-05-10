@@ -21,10 +21,21 @@ async function batchEmbed(texts: string[], maxRetries = 4): Promise<number[][]> 
                 requests: texts.map(text => ({
                     model: "models/gemini-embedding-001",
                     content: { role: 'user', parts: [{ text }] },
-                    taskType: 'RETRIEVAL_DOCUMENT' as any
-                }))
+                    taskType: 'RETRIEVAL_DOCUMENT' as any,
+                    outputDimensionality: 768
+                } as any))
             });
-            return result.embeddings.map(e => e.values);
+            return result.embeddings.map(e => {
+                // Ensure exactly 768 dimensions for pgvector
+                const values = e.values;
+                if (values.length > 768) return values.slice(0, 768);
+                if (values.length < 768) {
+                    const padded = new Array(768).fill(0);
+                    for (let i = 0; i < values.length; i++) padded[i] = values[i];
+                    return padded;
+                }
+                return values;
+            });
         } catch (error: any) {
             const msg = error.message || '';
             console.warn(`[Embed] Batch attempt ${attempt}/${maxRetries} failed: ${msg.substring(0, 100)}`);

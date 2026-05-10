@@ -106,22 +106,32 @@ export function UserDashboardClient({
                         </div>
                     </div>
 
-                    {/* User Info */}
-                    <div className="flex items-center gap-6 bg-black/40 px-6 py-3 rounded-full border border-white/10 backdrop-blur-md cursor-target">
-                        {userPlan === 'PRO' && (
-                            <div className="px-3 py-1 bg-gradient-to-r from-[#e100ff] to-indigo-500 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-lg shadow-[#e100ff]/20">
-                                <Sparkles className="w-3 h-3" /> PRO
-                            </div>
+                    {/* Right side container */}
+                    <div className="flex items-center gap-4">
+                        {/* Go Pro Button (only if FREE) */}
+                        {userPlan === 'FREE' && (
+                            <a href="/pricing" className="px-5 py-2.5 bg-gradient-to-r from-[#e100ff]/10 to-indigo-500/10 hover:from-[#e100ff]/30 hover:to-indigo-500/30 border border-[#e100ff]/30 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-white transition-all flex items-center gap-2 cursor-target backdrop-blur-md">
+                                <Sparkles className="w-3.5 h-3.5 text-[#e100ff]" /> Go Pro
+                            </a>
                         )}
-                        <div className="text-right">
-                            <p className="text-sm font-black uppercase tracking-widest text-white truncate max-w-[120px]">{displayName}</p>
-                            <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#e100ff]">
-                                {userPlan === 'PRO' ? 'PRO VOYAGER' : 'FREE VOYAGER'}
-                            </p>
-                        </div>
-                        <div className="w-[1px] h-6 bg-white/20"></div>
-                        <div className="cursor-target">
-                            <SignOutButton />
+
+                        {/* User Info */}
+                        <div className="flex items-center gap-6 bg-black/40 px-6 py-3 rounded-full border border-white/10 backdrop-blur-md cursor-target">
+                            {userPlan === 'PRO' && (
+                                <div className="px-3 py-1 bg-gradient-to-r from-[#e100ff] to-indigo-500 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-lg shadow-[#e100ff]/20">
+                                    <Sparkles className="w-3 h-3" /> PRO
+                                </div>
+                            )}
+                            <div className="text-right">
+                                <p className="text-sm font-black uppercase tracking-widest text-white truncate max-w-[120px]">{displayName}</p>
+                                <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#e100ff]">
+                                    {userPlan === 'PRO' ? 'PRO VOYAGER' : 'FREE VOYAGER'}
+                                </p>
+                            </div>
+                            <div className="w-[1px] h-6 bg-white/20"></div>
+                            <div className="cursor-target">
+                                <SignOutButton />
+                            </div>
                         </div>
                     </div>
                 </header>
