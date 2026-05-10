@@ -42,7 +42,12 @@ export default function PricingPage() {
             const data = await res.json();
 
             if (!data.orderId) {
-                alert(data.error || 'Failed to create order');
+                if (data.isGuest) {
+                    alert('You must sign up for an account to purchase Pro. Redirecting to signup...');
+                    window.location.href = '/login?mode=signup';
+                } else {
+                    alert(data.error || 'Failed to create order');
+                }
                 setLoading(false);
                 return;
             }

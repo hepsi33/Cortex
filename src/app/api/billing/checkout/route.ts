@@ -22,6 +22,13 @@ export async function POST() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        if ((session.user as any).isGuest) {
+            return NextResponse.json({ 
+                error: 'Guest users must create an account to purchase Pro.', 
+                isGuest: true 
+            }, { status: 403 });
+        }
+
         const order = await razorpay.orders.create({
             amount: PLANS.PRO.amount,
             currency: PLANS.PRO.currency,
