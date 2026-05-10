@@ -20,7 +20,7 @@ if (process.env.NODE_ENV === 'development' && !isTestKey && process.env.STRIPE_S
     logger.warn("CRITICAL: You are using a LIVE Stripe key in development. Please use test keys (sk_test_...).", 'STRIPE');
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
     apiVersion: '2025-01-27' as any, // Use latest stable
     typescript: true,
 });
