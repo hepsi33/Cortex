@@ -99,10 +99,8 @@ export async function processUpload(documentId: string, buffer: Buffer, fileType
             .set({ content: textContent })
             .where(eq(documents.id, documentId));
 
-        // Trigger indexing in background (don't await)
-        processDocumentChunks(documentId, textContent).catch(err => {
-            console.error(`[Processor] Background indexing failed for ${documentId}:`, err);
-        });
+        // Await indexing (it's safe now because the whole function is inside after())
+        await processDocumentChunks(documentId, textContent);
 
         console.log(`[Processor] ✅ Done: ${originalName}`);
 
@@ -196,10 +194,8 @@ export async function processUrl(documentId: string, url: string) {
 
         await updateDocStatus(documentId, 'indexing');
 
-        // Trigger indexing in background (don't await)
-        processDocumentChunks(documentId, textContent).catch(err => {
-            console.error(`[Processor] Background indexing failed for URL ${documentId}:`, err);
-        });
+        // Await indexing (it's safe now because the whole function is inside after())
+        await processDocumentChunks(documentId, textContent);
         console.log(`[Processor] ✅ URL Done: ${url}`);
 
     } catch (error: any) {
