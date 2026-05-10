@@ -3,27 +3,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    Play, 
-    Pause, 
-    RotateCcw, 
-    CloudRain, 
-    Trees, 
-    Waves, 
-    Wind,
-    ArrowLeft,
-    Coffee,
-    Settings2,
-    X,
-    LayoutGrid,
-    BookOpen,
-    Maximize2,
-    Minimize2,
-    Volume2,
-    VolumeX,
-    Sparkles
+    Play, Pause, RotateCcw, CloudRain, Trees, Waves, Wind,
+    ArrowLeft, Coffee, Settings2, X, LayoutGrid, BookOpen,
+    Maximize2, Minimize2, Volume2, VolumeX, Sparkles
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
+import PremiumLock from '@/components/premium/PremiumLock';
 
 declare global {
     interface Window {
@@ -36,60 +22,18 @@ const wallpapers = [
     { id: 'jfKfPfyJRdk', name: 'Lofi Study', icon: Coffee }, 
     { id: 'o4qjk8_5gmU', name: 'Rainy Night', icon: CloudRain }, 
     { id: 'hp_Anj_X_x8', name: 'Deep Library', icon: BookOpen }, 
-    { id: 'pu5vm4_BqAs', name: 'Wild Nature', icon: Trees }, // User Requested 4K Nature
+    { id: 'pu5vm4_BqAs', name: 'Wild Nature', icon: Trees },
     { id: 'wqDKLGS-caw', name: 'Deep Space', icon: Wind }, 
 ];
 
 const ambientSounds = [
-    { 
-        id: 'rain', 
-        name: 'Gentle Rain', 
-        icon: CloudRain, 
-        type: 'youtube',
-        url: 'q76bMs-NwRk' 
-    },
-    { 
-        id: 'birds', 
-        name: 'Morning Birds', 
-        icon: Trees, 
-        type: 'youtube',
-        url: 'rYoZgpAEkFs' 
-    },
-    { 
-        id: 'waves', 
-        name: 'Ocean Waves', 
-        icon: Waves, 
-        type: 'youtube',
-        url: 'bn9F19Hi1Lk' 
-    },
-    { 
-        id: 'white-noise', 
-        name: 'White Noise', 
-        icon: Wind, 
-        type: 'youtube',
-        url: 'nMfPqeZjc2c' 
-    },
-    { 
-        id: 'cafe', 
-        name: 'Cafe Ambience', 
-        icon: Coffee, 
-        type: 'youtube',
-        url: 'h2zkV-l_TbY' 
-    },
-    { 
-        id: 'storm', 
-        name: 'Thunderstorm', 
-        icon: CloudRain, 
-        type: 'youtube',
-        url: 'xK_m77VZYnc' 
-    },
-    { 
-        id: 'library', 
-        name: 'Library focus', 
-        icon: BookOpen, 
-        type: 'youtube',
-        url: '4vIQON2fDWM' 
-    },
+    { id: 'rain', name: 'Gentle Rain', icon: CloudRain, type: 'youtube', url: 'q76bMs-NwRk' },
+    { id: 'birds', name: 'Morning Birds', icon: Trees, type: 'youtube', url: 'rYoZgpAEkFs' },
+    { id: 'waves', name: 'Ocean Waves', icon: Waves, type: 'youtube', url: 'bn9F19Hi1Lk' },
+    { id: 'white-noise', name: 'White Noise', icon: Wind, type: 'youtube', url: 'nMfPqeZjc2c' },
+    { id: 'cafe', name: 'Cafe Ambience', icon: Coffee, type: 'youtube', url: 'h2zkV-l_TbY' },
+    { id: 'storm', name: 'Thunderstorm', icon: CloudRain, type: 'youtube', url: 'xK_m77VZYnc' },
+    { id: 'library', name: 'Library focus', icon: BookOpen, type: 'youtube', url: '4vIQON2fDWM' },
 ];
 
 export default function FocusPage() {
@@ -101,6 +45,7 @@ export default function FocusPage() {
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [showSounds, setShowSounds] = useState(false);
+    const [subscription, setSubscription] = useState<{ isPremium: boolean; limits: any } | null>(null);
     
     const [studyMins, setStudyMins] = useState(25);
     const [breakMins, setBreakMins] = useState(5);
@@ -117,6 +62,7 @@ export default function FocusPage() {
 
     useEffect(() => {
         setMounted(true);
+        fetchSubscription();
         
         // Load YouTube API if needed
         if (!window.YT) {
@@ -136,6 +82,18 @@ export default function FocusPage() {
             });
         };
     }, []);
+
+    const fetchSubscription = async () => {
+        try {
+            const res = await fetch('/api/billing/status');
+            const data = await res.json();
+            setSubscription(data);
+        } catch (error) {
+            console.error('Failed to fetch subscription:', error);
+        }
+    };
+
+    const isMaxTimeReached = !subscription?.isPremium && studyMins >= 60;
 
     const initYTPlayer = (soundId: string, videoId: string) => {
         if (!window.YT || !window.YT.Player) return;
@@ -562,15 +520,40 @@ export default function FocusPage() {
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-center">
                                         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Work Period</label>
-                                        <span className="text-xl font-black italic text-[#e100ff]">
+                                        <span className={cn(
+                                            "text-xl font-black italic transition-colors",
+                                            studyMins >= 60 && !subscription?.isPremium ? "text-amber-400" : "text-[#e100ff]"
+                                        )}>
                                             {studyMins >= 60 ? `${Math.floor(studyMins / 60)}h ${studyMins % 60}m` : `${studyMins}m`}
                                         </span>
                                     </div>
-                                    <Slider 
-                                        value={[studyMins]} 
-                                        onValueChange={(v) => setStudyMins(v[0])}
-                                        min={10} max={240} step={5}
-                                    />
+                                    
+                                    {studyMins >= 60 && !subscription?.isPremium ? (
+                                        <PremiumLock 
+                                            isPremium={false} 
+                                            featureName="Deep Focus" 
+                                            description="Free users are limited to 1 hour sessions. Upgrade to focus for up to 4 hours."
+                                        >
+                                            <Slider 
+                                                value={[studyMins]} 
+                                                disabled
+                                                max={240}
+                                            />
+                                        </PremiumLock>
+                                    ) : (
+                                        <Slider 
+                                            value={[studyMins]} 
+                                            onValueChange={(v) => {
+                                                const val = v[0];
+                                                if (!subscription?.isPremium && val > 60) {
+                                                    setStudyMins(60);
+                                                } else {
+                                                    setStudyMins(val);
+                                                }
+                                            }}
+                                            min={10} max={240} step={5}
+                                        />
+                                    )}
                                 </div>
 
                                 <div className="space-y-4">

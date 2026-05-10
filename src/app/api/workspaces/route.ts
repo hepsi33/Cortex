@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { workspaces, profiles } from '@/drizzle/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, count } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
+import { getUserSubscriptionPlan } from '@/lib/subscription';
+import { logger } from '@/lib/logger';
 
 const isValidUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
@@ -21,22 +23,6 @@ export async function GET(req: NextRequest) {
             }, { status: 400 });
         }
 
-        // Ensure user exists in DB (for guests)
-        const userExists = await db.query.profiles.findFirst({
-            where: eq(profiles.id, userId as any)
-        });
-
-        if (!userExists) {
-            await db.insert(profiles).values({
-                id: userId as any,
-                name: session.user.name || "Guest",
-                email: session.user.email || `${userId}@guest.cortex`,
-                password: "guest_no_password",
-                role: "user",
-                status: "approved"
-            }).onConflictDoNothing();
-        }
-
         const userWorkspaces = await db.query.workspaces.findMany({
             where: eq(workspaces.userId, userId as any),
             orderBy: [desc(workspaces.createdAt)],
@@ -44,7 +30,7 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json(userWorkspaces);
     } catch (error) {
-        console.error('Get workspaces error:', error);
+        logger.error('Get workspaces error:', 'DATABASE', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
@@ -57,27 +43,29 @@ export async function POST(req: NextRequest) {
         }
 
         const userId = session.user.id;
-        if (!isValidUuid(userId)) {
-            return NextResponse.json({ 
-                error: 'Invalid Session', 
-                details: 'Please log out and log in again as guest.' 
-            }, { status: 400 });
+        
+        // 1. Fetch the user's subscription plan and limits
+        const subscription = await getUserSubscriptionPlan();
+        if (!subscription) {
+            return NextResponse.json({ error: 'Subscription data not found' }, { status: 500 });
         }
 
-        // Ensure user exists in DB (for guests)
-        const userExists = await db.query.profiles.findFirst({
-            where: eq(profiles.id, userId as any)
-        });
+        // 2. Count existing workspaces for this user
+        const existingWorkspaces = await db
+            .select({ value: count() })
+            .from(workspaces)
+            .where(eq(workspaces.userId, userId as any));
+        
+        const workspaceCount = existingWorkspaces[0]?.value || 0;
 
-        if (!userExists) {
-            await db.insert(profiles).values({
-                id: userId as any,
-                name: session.user.name || "Guest",
-                email: session.user.email || `${userId}@guest.cortex`,
-                password: "guest_no_password",
-                role: "user",
-                status: "approved"
-            }).onConflictDoNothing();
+        // 3. ENFORCE LIMITS
+        // If they are not premium and reached the limit (3), block them.
+        if (!subscription.isPremium && workspaceCount >= subscription.limits.MAX_REPOS) {
+            logger.warn(`User ${session.user.email} reached workspace limit (${workspaceCount})`, 'PREMIUM');
+            return NextResponse.json({ 
+                error: 'Limit Reached', 
+                details: `Free tier is limited to ${subscription.limits.MAX_REPOS} repositories. Please upgrade to Pro for unlimited access.`
+            }, { status: 403 });
         }
 
         const { name } = await req.json();
@@ -91,13 +79,14 @@ export async function POST(req: NextRequest) {
             name: name.trim(),
         }).returning();
 
+        logger.info(`Workspace created: ${name} (Count: ${workspaceCount + 1})`, 'USAGE');
+
         return NextResponse.json(newWorkspace, { status: 201 });
     } catch (error: any) {
-        console.error('Create workspace error:', error);
+        logger.error('Create workspace error:', 'DATABASE', error);
         return NextResponse.json({ 
             error: 'Internal Server Error', 
-            details: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+            details: error.message
         }, { status: 500 });
     }
 }

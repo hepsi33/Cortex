@@ -4,6 +4,7 @@ import { profiles, workspaces, documents, chats } from "@/drizzle/schema";
 import { eq, desc } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { UserDashboardClient } from "./dashboard-client";
+import { getUserSubscriptionPlan } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,7 @@ export default async function UserDashboard() {
             <UserDashboardClient
                 displayName={dashboardData.displayName}
                 email={dashboardData.email}
+                userPlan="FREE"
                 workspaces={dashboardData.workspaces}
                 recentDocs={dashboardData.recentDocs}
                 recentChats={dashboardData.recentChats}
@@ -106,10 +108,15 @@ export default async function UserDashboard() {
         dashboardData.displayName = "User";
     }
 
+    // Get subscription plan
+    const subscription = await getUserSubscriptionPlan();
+    const userPlan = subscription?.isPremium ? 'PRO' : 'FREE';
+
     return (
         <UserDashboardClient
             displayName={dashboardData.displayName}
             email={dashboardData.email}
+            userPlan={userPlan as 'FREE' | 'PRO'}
             workspaces={dashboardData.workspaces}
             recentDocs={dashboardData.recentDocs}
             recentChats={dashboardData.recentChats}

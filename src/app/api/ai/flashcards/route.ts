@@ -4,6 +4,7 @@ import { documents } from '@/drizzle/schema';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { Groq } from 'groq-sdk';
+import { checkAIGenerationLimit, incrementAIGeneration } from '@/lib/usage';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -11,6 +12,15 @@ export async function POST(req: NextRequest) {
     try {
         const session = await auth();
         if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+        // Usage limit check
+        const usage = await checkAIGenerationLimit(session.user.id);
+        if (!usage.allowed) {
+            return NextResponse.json({ 
+                error: 'Daily limit reached', 
+                details: `Free users are limited to ${usage.limit} AI generations per day. Upgrade to Pro for more.` 
+            }, { status: 429 });
+        }
 
         const { workspaceId, count, topic } = await req.json();
 
@@ -63,6 +73,9 @@ export async function POST(req: NextRequest) {
         let flashcards = JSON.parse(responseContent);
         if (flashcards.flashcards) flashcards = flashcards.flashcards;
         if (flashcards.cards) flashcards = flashcards.cards;
+
+        // Track usage
+        await incrementAIGeneration(session.user.id);
 
         return NextResponse.json(flashcards);
 

@@ -6,9 +6,22 @@ export const profiles = pgTable('profiles', {
     name: text('name').notNull(),
     email: text('email').notNull().unique(),
     password: text('password').notNull(),
-    role: text('role', { enum: ['admin', 'user'] }).default('user').notNull(),
-    status: text('status', { enum: ['pending', 'approved', 'rejected'] }).default('pending').notNull(),
+    role: text('role', { enum: ['admin', 'user', 'pro', 'demo_admin'] }).default('user').notNull(),
+    status: text('status', { enum: ['pending', 'approved', 'rejected', 'active'] }).default('active').notNull(),
+    stripeCustomerId: text('stripe_customer_id').unique(),
+    stripeSubscriptionId: text('stripe_subscription_id').unique(),
+    stripePriceId: text('stripe_price_id'),
+    stripeCurrentPeriodEnd: timestamp('stripe_current_period_end'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const usage_tracking = pgTable('usage_tracking', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').references(() => profiles.id, { onDelete: 'cascade' }).notNull(),
+    day: text('day').notNull(), // Format: YYYY-MM-DD
+    aiGenerations: integer('ai_generations').default(0).notNull(),
+    repoCount: integer('repo_count').default(0).notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 export const workspaces = pgTable('workspaces', {
@@ -66,6 +79,13 @@ export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
     chats: many(chats),
 }));
 
+export const usageTrackingRelations = relations(usage_tracking, ({ one }) => ({
+    user: one(profiles, {
+        fields: [usage_tracking.userId],
+        references: [profiles.id],
+    }),
+}));
+
 export const documentsRelations = relations(documents, ({ one, many }) => ({
     user: one(profiles, {
         fields: [documents.userId],
@@ -121,3 +141,5 @@ export type Chat = typeof chats.$inferSelect;
 export type NewChat = typeof chats.$inferInsert;
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
+export type UsageTracking = typeof usage_tracking.$inferSelect;
+export type NewUsageTracking = typeof usage_tracking.$inferInsert;

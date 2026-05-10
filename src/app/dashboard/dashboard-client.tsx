@@ -6,10 +6,15 @@ import FloatingCards from "@/components/dashboard/FloatingCards";
 import TargetCursor from "@/components/ui/TargetCursor";
 import Image from "next/image";
 import logo from "@/assets/logo.jpg";
+import { useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, X } from "lucide-react";
 
 type DashboardClientProps = {
     displayName: string;
     email: string;
+    userPlan: 'FREE' | 'PRO';
     workspaces: any[];
     recentDocs: any[];
     recentChats: any[];
@@ -24,11 +29,25 @@ type DashboardClientProps = {
 export function UserDashboardClient({
     displayName,
     email,
+    userPlan,
     workspaces,
     recentDocs,
     recentChats,
     stats
 }: DashboardClientProps) {
+    const searchParams = useSearchParams();
+    const [showUpgradeToast, setShowUpgradeToast] = useState(false);
+
+    useEffect(() => {
+        if (searchParams.get('upgraded') === 'true') {
+            setShowUpgradeToast(true);
+            // Auto-dismiss after 6 seconds
+            const timer = setTimeout(() => setShowUpgradeToast(false), 6000);
+            // Clean URL
+            window.history.replaceState({}, '', '/dashboard');
+            return () => clearTimeout(timer);
+        }
+    }, [searchParams]);
 
     return (
         <div 
@@ -89,9 +108,16 @@ export function UserDashboardClient({
 
                     {/* User Info */}
                     <div className="flex items-center gap-6 bg-black/40 px-6 py-3 rounded-full border border-white/10 backdrop-blur-md cursor-target">
+                        {userPlan === 'PRO' && (
+                            <div className="px-3 py-1 bg-gradient-to-r from-[#e100ff] to-indigo-500 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-lg shadow-[#e100ff]/20">
+                                <Sparkles className="w-3 h-3" /> PRO
+                            </div>
+                        )}
                         <div className="text-right">
                             <p className="text-sm font-black uppercase tracking-widest text-white truncate max-w-[120px]">{displayName}</p>
-                            <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#e100ff]">ACTIVE VOYAGER</p>
+                            <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#e100ff]">
+                                {userPlan === 'PRO' ? 'PRO VOYAGER' : 'FREE VOYAGER'}
+                            </p>
                         </div>
                         <div className="w-[1px] h-6 bg-white/20"></div>
                         <div className="cursor-target">
@@ -137,6 +163,33 @@ export function UserDashboardClient({
                 </div>
 
             </div>
+
+            {/* Upgrade Celebration Toast */}
+            <AnimatePresence>
+                {showUpgradeToast && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 50, scale: 0.9 }}
+                        className="fixed bottom-8 right-8 z-50 pointer-events-auto"
+                    >
+                        <div className="bg-gradient-to-r from-[#e100ff]/20 to-indigo-600/20 backdrop-blur-xl border border-[#e100ff]/30 rounded-2xl p-6 shadow-2xl shadow-[#e100ff]/10 max-w-sm">
+                            <div className="flex items-start gap-4">
+                                <div className="w-12 h-12 bg-[#e100ff] rounded-xl flex items-center justify-center flex-shrink-0">
+                                    <Sparkles className="w-6 h-6 text-white" />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="text-white font-black text-sm uppercase tracking-wider">Welcome to Pro!</h3>
+                                    <p className="text-white/50 text-xs mt-1">All premium features are now unlocked. Enjoy unlimited AI power.</p>
+                                </div>
+                                <button onClick={() => setShowUpgradeToast(false)} className="text-white/30 hover:text-white transition-colors">
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
