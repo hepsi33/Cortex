@@ -39,10 +39,10 @@ export async function parsePdf(buffer: Buffer): Promise<string> {
 }
 
 async function parsePdfWithGemini(buffer: Buffer): Promise<string> {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     
     // For very large PDFs, we might need to limit the size to avoid payload limits
-    // but 1.5 Flash handles up to 200MB. base64 adds ~33% overhead.
+    // but 2.0 Flash handles large contexts nicely. base64 adds ~33% overhead.
     if (buffer.length > 50 * 1024 * 1024) {
         console.warn("[Parser] PDF is very large for Gemini fallback. Using first 20MB.");
         buffer = buffer.subarray(0, 20 * 1024 * 1024);

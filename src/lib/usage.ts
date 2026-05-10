@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { usage_tracking } from '@/drizzle/schema';
+import { usage_tracking, profiles } from '@/drizzle/schema';
 import { eq, and } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 import { getUserSubscriptionPlan } from './subscription';
@@ -25,6 +25,22 @@ async function getOrCreateTodayUsage(userId: string) {
     });
 
     if (existing) return existing;
+
+    // Ensure the user exists in profiles to prevent FK constraint errors
+    const userExists = await db.query.profiles.findFirst({
+        where: eq(profiles.id, userId as any)
+    });
+
+    if (!userExists) {
+        await db.insert(profiles).values({
+            id: userId as any,
+            name: "Guest",
+            email: `${userId}@guest.cortex`,
+            password: "guest_no_password",
+            role: "user",
+            status: "approved"
+        }).onConflictDoNothing();
+    }
 
     // Create a new record for today
     const [created] = await db.insert(usage_tracking).values({
