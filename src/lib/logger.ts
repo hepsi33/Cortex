@@ -6,7 +6,7 @@
  */
 
 type LogLevel = 'INFO' | 'WARN' | 'ERROR';
-type Phase = 'STRIPE' | 'PREMIUM' | 'USAGE' | 'WEBHOOK' | 'DATABASE' | 'AUTH' | 'GENERAL';
+type Phase = 'STRIPE' | 'RAZORPAY' | 'PREMIUM' | 'USAGE' | 'WEBHOOK' | 'DATABASE' | 'AUTH' | 'GENERAL';
 
 class Logger {
     private formatMessage(level: LogLevel, phase: Phase, message: string) {
