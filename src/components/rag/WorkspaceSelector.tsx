@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Plus, Folder, Pencil, Trash2, Check, X, Loader2, LayoutGrid, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +31,7 @@ interface WorkspaceSelectorProps {
 export function WorkspaceSelector({ currentWorkspace, onWorkspaceChange }: WorkspaceSelectorProps) {
     const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
     const [loading, setLoading] = useState(true);
+    const router = useRouter();
     const [creating, setCreating] = useState(false);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [newWorkspaceName, setNewWorkspaceName] = useState('');
@@ -76,7 +78,7 @@ export function WorkspaceSelector({ currentWorkspace, onWorkspaceChange }: Works
         
         // Final safety check
         if (isLimitReached) {
-            alert("Limit reached. Please upgrade to Pro.");
+            router.push('/pricing');
             return;
         }
 
@@ -103,9 +105,12 @@ export function WorkspaceSelector({ currentWorkspace, onWorkspaceChange }: Works
                 setNewWorkspaceName('');
             }
         } catch (error: any) {
-            console.error('Failed to create workspace:', error);
-            const detail = error.details ? ` (${error.details})` : '';
-            alert(`Failed to create space: ${error.message}${detail}`);
+            if (error.message === 'Limit Reached' || error.details?.includes('upgrade')) {
+                router.push('/pricing');
+            } else {
+                const detail = error.details ? ` (${error.details})` : '';
+                alert(`Failed to create space: ${error.message}${detail}`);
+            }
         } finally {
             setCreating(false);
         }

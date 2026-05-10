@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Upload, Link as LinkIcon, File, X, Loader2, CheckCircle2, AlertCircle, Globe, Youtube, Trash2, CheckSquare, Square, ExternalLink, Sparkles } from "lucide-react";
 import { uploadDocumentAction } from "@/lib/actions/upload-action";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ export function DocumentManager({ workspaceId }: { workspaceId: string | null })
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [url, setUrl] = useState("");
     const [uploading, setUploading] = useState(false);
+    const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [showUrlDialog, setShowUrlDialog] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<null | 'selected' | string>(null);
@@ -83,6 +85,10 @@ export function DocumentManager({ workspaceId }: { workspaceId: string | null })
                 const res = await uploadDocumentAction(formData);
                 
                 if (!res.success) {
+                    if (res.error === 'Limit Reached') {
+                        router.push('/pricing');
+                        break;
+                    }
                     const msg = `Failed to upload ${file.name}: ${res.error}`;
                     console.error(msg);
                     alert(msg);
@@ -112,7 +118,11 @@ export function DocumentManager({ workspaceId }: { workspaceId: string | null })
                 setShowUrlDialog(false);
                 fetchDocs();
             } else {
-                alert(`Failed to process link: ${res.error}`);
+                if (res.error === 'Limit Reached') {
+                    router.push('/pricing');
+                } else {
+                    alert(`Failed to process link: ${res.error}`);
+                }
             }
         } catch (err) {
             console.error(err);

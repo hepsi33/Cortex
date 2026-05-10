@@ -44,6 +44,11 @@ export async function POST(req: NextRequest) {
 
         const userId = session.user.id;
         
+        // Guests cannot create persistent workspaces
+        if ((session.user as any).isGuest) {
+            return NextResponse.json({ error: 'Guests cannot create workspaces. Please sign up to save your work.' }, { status: 403 });
+        }
+        
         // 1. Fetch the user's subscription plan and limits
         const subscription = await getUserSubscriptionPlan();
         if (!subscription) {

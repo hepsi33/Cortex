@@ -12,11 +12,13 @@ import { FEATURE_FLAGS } from "@/config/features";
 export const PLAN_LIMITS = {
     FREE: {
         MAX_REPOS: 3,
+        MAX_UPLOADS: 10,
         MAX_DAILY_AI_GENERATIONS: 10,
         MAX_FOCUS_SESSION_SECONDS: 3600, // 1 hour
     },
     PRO: {
         MAX_REPOS: 100, // Effectively unlimited
+        MAX_UPLOADS: 10000,
         MAX_DAILY_AI_GENERATIONS: 1000,
         MAX_FOCUS_SESSION_SECONDS: 28800, // 8 hours
     }
@@ -39,8 +41,12 @@ export async function getUserSubscriptionPlan() {
         });
 
         if (!user) {
-            logger.warn(`User profile not found for ID: ${session.user.id}`, 'PREMIUM');
-            return null;
+            logger.warn(`User profile not found for ID: ${session.user.id}. Returning FREE fallback.`, 'PREMIUM');
+            return {
+                isPremium: false,
+                plan: 'FREE',
+                limits: PLAN_LIMITS.FREE
+            };
         }
 
         /**

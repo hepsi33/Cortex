@@ -34,6 +34,23 @@ export async function uploadDocumentAction(formData: FormData) {
             }).onConflictDoNothing();
         }
 
+        const { getUserSubscriptionPlan } = await import('@/lib/subscription');
+        const subscription = await getUserSubscriptionPlan();
+
+        if (subscription && !subscription.isPremium) {
+            const { count } = await import('drizzle-orm');
+            const totalDocsResult = await db
+                .select({ value: count() })
+                .from(documents)
+                .where(eq(documents.userId, userId as any));
+            
+            const totalDocs = totalDocsResult[0]?.value || 0;
+            
+            if (totalDocs >= subscription.limits.MAX_UPLOADS) {
+                return { success: false, error: 'Limit Reached' };
+            }
+        }
+
         let docId = '';
 
         if (file) {

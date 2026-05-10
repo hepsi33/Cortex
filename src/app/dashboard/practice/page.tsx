@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import SoftAurora from '@/components/dashboard/SoftAurora';
+import { useRouter } from 'next/navigation';
 
 interface Workspace {
     id: string;
@@ -60,10 +61,23 @@ export default function PracticePage() {
     const [cardCount, setCardCount] = useState([10]);
     const [topic, setTopic] = useState('');
     const [sessionMode, setSessionMode] = useState<'quiz' | 'flashcards' | null>(null);
+    const [subscription, setSubscription] = useState<any>(null);
+    const router = useRouter();
 
     useEffect(() => {
         fetchWorkspaces();
+        fetchSubscription();
     }, []);
+
+    const fetchSubscription = async () => {
+        try {
+            const res = await fetch('/api/user'); // Cortex has a /api/user route for this usually
+            const data = await res.json();
+            setSubscription(data);
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     const fetchWorkspaces = async () => {
         setLoading(true);
@@ -321,7 +335,13 @@ export default function PracticePage() {
                                     </div>
                                     <Slider 
                                         value={quizCount} 
-                                        onValueChange={setQuizCount} 
+                                        onValueChange={(v) => {
+                                            if (subscription && !subscription.isPremium && v[0] > 10) {
+                                                router.push('/pricing');
+                                            } else {
+                                                setQuizCount(v);
+                                            }
+                                        }} 
                                         min={3} max={20} step={1}
                                     />
                                 </div>
@@ -443,12 +463,20 @@ export default function PracticePage() {
                                         <span>Target Topic</span>
                                         <span className="text-[#00d4ff] italic">Precision Focus</span>
                                     </div>
-                                    <Input 
-                                        placeholder="Specific topic (optional)"
-                                        value={topic}
-                                        onChange={(e) => setTopic(e.target.value)}
-                                        className="h-16 bg-white/5 border-white/5 rounded-2xl px-6 text-sm focus:ring-0 placeholder:text-white/10"
-                                    />
+                                    <div className="relative">
+                                        <Input 
+                                            placeholder={subscription && !subscription.isPremium ? "Topic customization is a Pro feature" : "Specific topic (optional)"}
+                                            value={topic}
+                                            onChange={(e) => setTopic(e.target.value)}
+                                            onClick={() => {
+                                                if (subscription && !subscription.isPremium) {
+                                                    router.push('/pricing');
+                                                }
+                                            }}
+                                            readOnly={subscription && !subscription.isPremium}
+                                            className="h-16 bg-white/5 border-white/5 rounded-2xl px-6 text-sm focus:ring-0 placeholder:text-white/10"
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="space-y-6">
@@ -458,7 +486,13 @@ export default function PracticePage() {
                                     </div>
                                     <Slider 
                                         value={cardCount} 
-                                        onValueChange={setCardCount} 
+                                        onValueChange={(v) => {
+                                            if (subscription && !subscription.isPremium && v[0] > 5) {
+                                                router.push('/pricing');
+                                            } else {
+                                                setCardCount(v);
+                                            }
+                                        }} 
                                         min={5} max={30} step={5}
                                     />
                                 </div>

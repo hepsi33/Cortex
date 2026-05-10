@@ -22,7 +22,15 @@ export async function POST(req: NextRequest) {
             }, { status: 429 });
         }
 
-        const { workspaceId, difficulty, count } = await req.json();
+        const { getUserSubscriptionPlan } = await import('@/lib/subscription');
+        const subscription = await getUserSubscriptionPlan();
+
+        let { workspaceId, difficulty, count } = await req.json();
+
+        // Enforce Free Tier Limits
+        if (subscription && !subscription.isPremium) {
+            if (count > 10) count = 10; // Max 10 questions
+        }
 
         const isGuestWorkspace = workspaceId === "guest-workspace";
         let combinedText = "";

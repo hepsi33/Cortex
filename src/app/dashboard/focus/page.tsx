@@ -93,7 +93,7 @@ export default function FocusPage() {
         }
     };
 
-    const isMaxTimeReached = !subscription?.isPremium && studyMins >= 60;
+    const isMaxTimeReached = false; // No longer restricted
 
     const initYTPlayer = (soundId: string, videoId: string) => {
         if (!window.YT || !window.YT.Player) return;
@@ -532,33 +532,13 @@ export default function FocusPage() {
                                         </span>
                                     </div>
                                     
-                                    {studyMins >= 60 && !subscription?.isPremium ? (
-                                        <PremiumLock 
-                                            isPremium={false} 
-                                            featureName="Deep Focus" 
-                                            description="Free users are limited to 1 hour sessions. Upgrade to focus for up to 4 hours."
-                                        >
-                                            <Slider 
-                                                value={[studyMins]} 
-                                                onValueChange={() => {}}
-                                                disabled
-                                                max={240}
-                                            />
-                                        </PremiumLock>
-                                    ) : (
-                                        <Slider 
-                                            value={[studyMins]} 
-                                            onValueChange={(v) => {
-                                                const val = v[0];
-                                                if (!subscription?.isPremium && val > 60) {
-                                                    setStudyMins(60);
-                                                } else {
-                                                    setStudyMins(val);
-                                                }
-                                            }}
-                                            min={10} max={240} step={5}
-                                        />
-                                    )}
+                                    <Slider 
+                                        value={[studyMins]} 
+                                        onValueChange={(v) => {
+                                            setStudyMins(v[0]);
+                                        }}
+                                        min={10} max={240} step={5}
+                                    />
                                 </div>
 
                                 <div className="space-y-4">

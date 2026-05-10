@@ -38,6 +38,26 @@ export async function POST(req: NextRequest) {
             }).onConflictDoNothing();
         }
 
+        const { getUserSubscriptionPlan } = await import('@/lib/subscription');
+        const subscription = await getUserSubscriptionPlan();
+
+        if (subscription && !subscription.isPremium) {
+            const { count } = await import('drizzle-orm');
+            const totalDocsResult = await db
+                .select({ value: count() })
+                .from(documents)
+                .where(eq(documents.userId, userId as any));
+            
+            const totalDocs = totalDocsResult[0]?.value || 0;
+            
+            if (totalDocs >= subscription.limits.MAX_UPLOADS) {
+                return NextResponse.json({ 
+                    error: 'Limit Reached', 
+                    details: `Free tier is limited to ${subscription.limits.MAX_UPLOADS} total uploads across all workspaces. Please upgrade to Pro for unlimited access.`
+                }, { status: 403 });
+            }
+        }
+
         const contentType = req.headers.get('content-type') || '';
         let docId = '';
         let workspaceId = '';

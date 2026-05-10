@@ -22,7 +22,16 @@ export async function POST(req: NextRequest) {
             }, { status: 429 });
         }
 
-        const { workspaceId, count, topic } = await req.json();
+        const { getUserSubscriptionPlan } = await import('@/lib/subscription');
+        const subscription = await getUserSubscriptionPlan();
+
+        let { workspaceId, count, topic } = await req.json();
+
+        // Enforce Free Tier Limits
+        if (subscription && !subscription.isPremium) {
+            if (count > 5) count = 5; // Max 5 flashcards
+            topic = ''; // Topic customization locked
+        }
 
         const isGuestWorkspace = workspaceId === "guest-workspace";
         let combinedText = "";
