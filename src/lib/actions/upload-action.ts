@@ -1,5 +1,6 @@
 'use server';
 
+import { after } from 'next/server';
 import { db } from '@/lib/db';
 import { documents, profiles } from '@/drizzle/schema';
 import { auth } from '@/lib/auth';
@@ -65,8 +66,15 @@ export async function uploadDocumentAction(formData: FormData) {
             }).returning();
 
             docId = doc.id;
-            // Await processing for stability on Vercel
-            await processUpload(docId, buffer, file.type, file.name);
+            
+            // Execute heavy parsing/embedding in the background instantly
+            after(async () => {
+                try {
+                    await processUpload(docId, buffer, file.type, file.name);
+                } catch (err) {
+                    console.error("Background processing failed:", err);
+                }
+            });
         } else if (url) {
             const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
             const [doc] = await db.insert(documents).values({
@@ -79,8 +87,15 @@ export async function uploadDocumentAction(formData: FormData) {
             }).returning();
 
             docId = doc.id;
-            // Await processing for stability on Vercel
-            await processUrl(docId, url);
+            
+            // Execute heavy URL scraping/embedding in the background instantly
+            after(async () => {
+                try {
+                    await processUrl(docId, url);
+                } catch (err) {
+                    console.error("Background URL processing failed:", err);
+                }
+            });
         } else {
             throw new Error('No file or URL provided');
         }
