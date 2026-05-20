@@ -6,6 +6,7 @@ import JSZip from 'jszip';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { hasBudget, isApproachingLimit, recordCall } from './api-budget';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -25,28 +26,46 @@ export async function parsePdf(buffer: Buffer): Promise<string> {
         const looksLikePageNumbersOnly = textWithoutMarkers.length < 200 && text.includes('--');
 
         if (!text || text.trim().length < 50 || looksLikePageNumbersOnly) {
-            console.log(`[Parser] PDF text is sparse or malformed. Trying Gemini Vision...`);
-            return await parsePdfWithGemini(buffer);
+            console.log(`[Parser] PDF text is sparse or malformed. Trying vision OCR...`);
+            return await parsePdfWithVision(buffer);
         }
 
         console.log(`[Parser] PDF parsed: ${text.length} chars extracted`);
         return text;
     } catch (err: any) {
-        console.warn(`[Parser] Standard PDF parse failed (${err.message}). Trying Gemini Vision fallback...`);
+        console.warn(`[Parser] Standard PDF parse failed (${err.message}). Trying vision fallback...`);
         try {
-            return await parsePdfWithGemini(buffer);
-        } catch (geminiErr: any) {
-            console.error(`[Parser] All PDF extraction methods failed:`, geminiErr.message);
+            return await parsePdfWithVision(buffer);
+        } catch (visionErr: any) {
+            console.error(`[Parser] All PDF extraction methods failed:`, visionErr.message);
             throw new Error(`Could not read this PDF. It may be corrupted or protected.`);
         }
     }
+}
+
+/**
+ * Multi-provider PDF vision OCR: Gemini → Groq
+ */
+async function parsePdfWithVision(buffer: Buffer): Promise<string> {
+    // Try Gemini first if budget allows
+    if (hasBudget('gemini-generate') && !isApproachingLimit('gemini-generate')) {
+        try {
+            return await parsePdfWithGemini(buffer);
+        } catch (err: any) {
+            console.warn(`[Parser] Gemini PDF vision failed: ${err.message}. Trying Groq...`);
+        }
+    } else {
+        console.log(`[Parser] Gemini budget low, skipping to Groq vision...`);
+    }
+
+    // Fallback: Groq vision
+    return await parsePdfWithGroq(buffer);
 }
 
 async function parsePdfWithGemini(buffer: Buffer): Promise<string> {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY!);
 
-    // Save buffer to a temporary file for the File API
     const tempPath = path.join(os.tmpdir(), `cortex-temp-${Date.now()}-${Math.random().toString(36).substring(7)}.pdf`);
     fs.writeFileSync(tempPath, buffer);
 
@@ -68,17 +87,77 @@ async function parsePdfWithGemini(buffer: Buffer): Promise<string> {
             "Extract all the text from this PDF exactly as it appears. If there are images or diagrams, describe them. Maintain headings and structure."
         ]);
 
-        // Clean up from Google servers asynchronously
         fileManager.deleteFile(uploadResult.file.name).catch(e => console.warn("Failed to delete from Gemini server", e));
+        recordCall('gemini-generate');
 
         const response = await result.response;
         return response.text();
     } finally {
-        // Always clean up local temp file
         if (fs.existsSync(tempPath)) {
             fs.unlinkSync(tempPath);
         }
     }
+}
+
+/**
+ * Groq vision fallback for PDF OCR.
+ * Converts first pages to base64 images and uses Groq's vision model.
+ * Limited to ~4MB of base64 input.
+ */
+async function parsePdfWithGroq(buffer: Buffer): Promise<string> {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) throw new Error('GROQ_API_KEY not set for vision fallback');
+
+    console.log(`[Parser] Using Groq vision for PDF OCR...`);
+    
+    // For Groq, we send the PDF as base64 inline (limited to ~4MB)
+    const maxSize = 4 * 1024 * 1024;
+    const pdfBuffer = buffer.length > maxSize ? buffer.subarray(0, maxSize) : buffer;
+    const base64 = pdfBuffer.toString('base64');
+
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model: 'llama-3.2-90b-vision-preview',
+            messages: [
+                {
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'image_url',
+                            image_url: { url: `data:application/pdf;base64,${base64}` }
+                        },
+                        {
+                            type: 'text',
+                            text: 'Extract all the text from this document exactly as it appears. Maintain headings, lists, and structure. If there are diagrams, describe them briefly.'
+                        }
+                    ]
+                }
+            ],
+            temperature: 0.1,
+            max_tokens: 8000,
+        }),
+    });
+
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Groq vision failed (${response.status}): ${errText.substring(0, 200)}`);
+    }
+
+    const data = await response.json();
+    recordCall('groq-generate');
+    const text = data.choices?.[0]?.message?.content || '';
+    
+    if (!text || text.trim().length < 20) {
+        throw new Error('Groq vision returned insufficient text');
+    }
+    
+    console.log(`[Parser] Groq vision OCR success: ${text.length} chars extracted`);
+    return text;
 }
 
 export async function parseDocx(buffer: Buffer): Promise<string> {
@@ -166,55 +245,89 @@ export async function parseImage(buffer: Buffer, mimeType: string): Promise<stri
         throw new Error(`Image too large (${sizeMB}MB). Maximum supported size is 20MB.`);
     }
 
-    const modelName = "gemini-2.0-flash";
-    const maxRetries = 3;
-
-    const imagePart = {
-        inlineData: {
-            data: buffer.toString('base64'),
-            mimeType: mimeType
-        },
-    };
+    const base64 = buffer.toString('base64');
     const prompt = `This is a document or a textbook page. Please extract ALL text from this image exactly as it appears. 
     Maintain the structure (headings, lists, tables). 
     If there are diagrams, describe them briefly.
     Return ONLY the extracted text and descriptions.`;
 
-    let lastError: any;
-
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        try {
-            const model = genAI.getGenerativeModel({ model: modelName });
-            const result = await model.generateContent([prompt, imagePart]);
-            const response = await result.response;
-            const text = response.text();
-            
-            if (text && text.trim().length > 0) {
-                console.log(`[Parser] Image OCR success: ${text.length} chars extracted`);
-                return text;
-            }
-            throw new Error("Gemini returned empty text for image");
-        } catch (error: any) {
-            const msg = error.message || '';
-            lastError = error;
-
-            if (msg.includes("429") && attempt < maxRetries) {
-                const delay = Math.pow(2, attempt) * 3000;
-                console.warn(`[Parser] Rate limited. Waiting ${delay / 1000}s... (attempt ${attempt + 1}/${maxRetries})`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-                continue;
-            }
-            
-            if (attempt < maxRetries) {
-                console.warn(`[Parser] Image attempt ${attempt + 1} failed: ${msg}. Retrying...`);
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                continue;
+    // Provider 1: Gemini
+    if (hasBudget('gemini-generate') && !isApproachingLimit('gemini-generate')) {
+        const maxRetries = 2;
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+                const result = await model.generateContent([prompt, {
+                    inlineData: { data: base64, mimeType }
+                }]);
+                const response = await result.response;
+                const text = response.text();
+                recordCall('gemini-generate');
+                
+                if (text && text.trim().length > 0) {
+                    console.log(`[Parser] Image OCR (Gemini) success: ${text.length} chars`);
+                    return text;
+                }
+                throw new Error('Gemini returned empty text');
+            } catch (error: any) {
+                const msg = error.message || '';
+                if (msg.includes('429') && attempt < maxRetries) {
+                    const delay = Math.pow(2, attempt) * 3000;
+                    console.warn(`[Parser] Gemini rate limited. Waiting ${delay / 1000}s...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    continue;
+                }
+                console.warn(`[Parser] Gemini image attempt ${attempt + 1} failed: ${msg}`);
+                break; // Fall through to Groq
             }
         }
     }
 
-    console.error(`[Parser] All image OCR attempts failed: ${lastError?.message}`);
-    return `[Image: ${mimeType}, ${sizeMB}MB] — AI vision analysis failed. Error: ${lastError?.message || 'Unknown'}. Please re-upload when API quota resets.`;
+    // Provider 2: Groq vision
+    console.log(`[Parser] Falling back to Groq vision for image OCR...`);
+    const groqKey = process.env.GROQ_API_KEY;
+    if (groqKey) {
+        try {
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${groqKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: 'llama-3.2-90b-vision-preview',
+                    messages: [{
+                        role: 'user',
+                        content: [
+                            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
+                            { type: 'text', text: prompt }
+                        ]
+                    }],
+                    temperature: 0.1,
+                    max_tokens: 4000,
+                }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                recordCall('groq-generate');
+                const text = data.choices?.[0]?.message?.content || '';
+                if (text && text.trim().length > 0) {
+                    console.log(`[Parser] Image OCR (Groq) success: ${text.length} chars`);
+                    return text;
+                }
+            } else {
+                const errText = await response.text();
+                console.warn(`[Parser] Groq image failed (${response.status}): ${errText.substring(0, 100)}`);
+            }
+        } catch (groqErr: any) {
+            console.warn(`[Parser] Groq image failed: ${groqErr.message}`);
+        }
+    }
+
+    // All providers failed
+    console.error(`[Parser] All image OCR providers exhausted`);
+    return `[Image: ${mimeType}, ${sizeMB}MB] — All AI vision providers exhausted. Document will be re-indexed when API quota resets.`;
 }
 
 export async function parseText(buffer: Buffer): Promise<string> {

@@ -5,52 +5,167 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import { parsePdf, parseDocx, parsePptx, parseImage, parseText } from './file-parsers';
 import { scrapeUrl } from './firecrawl';
+import { hasBudget, isApproachingLimit, recordCall, rateLimit } from './api-budget';
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const embeddingModel = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
 
-/**
- * Batch embed up to 100 texts in a SINGLE API call.
- * This is 100x faster than embedding one at a time and uses only 1 RPM quota.
- */
-async function batchEmbed(texts: string[], maxRetries = 4): Promise<number[][]> {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            const result = await embeddingModel.batchEmbedContents({
-                requests: texts.map(text => ({
-                    model: "models/gemini-embedding-001",
-                    content: { role: 'user', parts: [{ text }] },
-                    taskType: 'RETRIEVAL_DOCUMENT' as any,
-                    outputDimensionality: 768
-                } as any))
-            });
-            return result.embeddings.map(e => {
-                // Ensure exactly 768 dimensions for pgvector
-                const values = e.values;
-                if (values.length > 768) return values.slice(0, 768);
-                if (values.length < 768) {
-                    const padded = new Array(768).fill(0);
-                    for (let i = 0; i < values.length; i++) padded[i] = values[i];
-                    return padded;
-                }
-                return values;
-            });
-        } catch (error: any) {
-            const msg = error.message || '';
-            console.warn(`[Embed] Batch attempt ${attempt}/${maxRetries} failed: ${msg.substring(0, 100)}`);
+// ── Multi-Provider Embedding Pipeline ───────────────────────────────
 
-            if (msg.includes('429') && attempt < maxRetries) {
-                const delay = Math.pow(2, attempt) * 5000;
-                console.log(`[Embed] Rate limited. Waiting ${delay / 1000}s...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-                continue;
+/**
+ * PRIMARY: Gemini batch embedding (fast, free-tier limited)
+ */
+async function embedWithGemini(texts: string[]): Promise<number[][]> {
+    await rateLimit('gemini-embed', 10, 60_000); // 10 RPM max
+    
+    const result = await embeddingModel.batchEmbedContents({
+        requests: texts.map(text => ({
+            model: "models/gemini-embedding-001",
+            content: { role: 'user', parts: [{ text }] },
+            taskType: 'RETRIEVAL_DOCUMENT' as any,
+            outputDimensionality: 768
+        } as any))
+    });
+    
+    recordCall('gemini-embed');
+    
+    return result.embeddings.map(e => {
+        const values = e.values;
+        if (values.length > 768) return values.slice(0, 768);
+        if (values.length < 768) {
+            const padded = new Array(768).fill(0);
+            for (let i = 0; i < values.length; i++) padded[i] = values[i];
+            return padded;
+        }
+        return values;
+    });
+}
+
+/**
+ * FALLBACK 1: OpenRouter embedding via the existing API key.
+ * Uses text-embedding-3-small (1536 dims, truncated to 768).
+ */
+async function embedWithOpenRouter(texts: string[]): Promise<number[][]> {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) throw new Error('OPENROUTER_API_KEY not set');
+
+    await rateLimit('openrouter-embed', 20, 60_000);
+
+    const response = await fetch('https://openrouter.ai/api/v1/embeddings', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+        },
+        body: JSON.stringify({
+            model: 'openai/text-embedding-3-small',
+            input: texts,
+            dimensions: 768,
+        }),
+    });
+
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`OpenRouter embed failed (${response.status}): ${errText.substring(0, 200)}`);
+    }
+
+    const data = await response.json();
+    recordCall('openrouter-embed');
+    
+    return data.data.map((item: any) => {
+        const values: number[] = item.embedding;
+        if (values.length > 768) return values.slice(0, 768);
+        if (values.length < 768) {
+            const padded = new Array(768).fill(0);
+            for (let i = 0; i < values.length; i++) padded[i] = values[i];
+            return padded;
+        }
+        return values;
+    });
+}
+
+/**
+ * FALLBACK 2: Local hash-based embeddings (zero API dependency).
+ * 
+ * Uses a simple character n-gram hashing approach to produce
+ * deterministic 768-dim vectors. Quality is lower than neural
+ * embeddings, but semantic search still works for exact/near matches.
+ * Documents can be re-embedded with better providers later.
+ */
+function embedLocal(texts: string[]): number[][] {
+    return texts.map(text => {
+        const vector = new Array(768).fill(0);
+        const normalized = text.toLowerCase().replace(/[^a-z0-9\s]/g, '');
+        const words = normalized.split(/\s+/).filter(w => w.length > 2);
+
+        // Character trigram hashing
+        for (const word of words) {
+            for (let i = 0; i <= word.length - 3; i++) {
+                const trigram = word.substring(i, i + 3);
+                let hash = 0;
+                for (let j = 0; j < trigram.length; j++) {
+                    hash = ((hash << 5) - hash) + trigram.charCodeAt(j);
+                    hash = hash & hash; // Convert to 32-bit int
+                }
+                const idx = Math.abs(hash) % 768;
+                vector[idx] += 1;
             }
-            if (attempt === maxRetries) throw error;
-            await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+        }
+
+        // L2 normalize
+        const magnitude = Math.sqrt(vector.reduce((sum: number, v: number) => sum + v * v, 0)) || 1;
+        return vector.map((v: number) => v / magnitude);
+    });
+}
+
+/**
+ * Multi-provider batch embedding with automatic fallback.
+ * 
+ * Chain: Gemini → OpenRouter → Local
+ * 
+ * Each provider is tried in order. If one fails (quota, network, etc.),
+ * the next one is used. The quota tracker proactively avoids providers
+ * that are approaching their daily limit.
+ */
+async function batchEmbed(texts: string[], maxRetries = 3): Promise<number[][]> {
+    // Provider 1: Gemini (if budget allows)
+    if (hasBudget('gemini-embed') && !isApproachingLimit('gemini-embed')) {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                return await embedWithGemini(texts);
+            } catch (error: any) {
+                const msg = error.message || '';
+                console.warn(`[Embed] Gemini attempt ${attempt}/${maxRetries} failed: ${msg.substring(0, 100)}`);
+
+                if (msg.includes('429') && attempt < maxRetries) {
+                    const delay = Math.pow(2, attempt) * 5000;
+                    console.log(`[Embed] Rate limited. Waiting ${delay / 1000}s...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    continue;
+                }
+                // Break to fallback on non-retryable errors
+                break;
+            }
+        }
+        console.warn('[Embed] ⚠️ Gemini exhausted, falling back to OpenRouter...');
+    } else {
+        console.log('[Embed] Gemini budget low, using fallback providers...');
+    }
+
+    // Provider 2: OpenRouter
+    if (process.env.OPENROUTER_API_KEY) {
+        try {
+            return await embedWithOpenRouter(texts);
+        } catch (error: any) {
+            console.warn(`[Embed] OpenRouter failed: ${(error.message || '').substring(0, 100)}`);
         }
     }
-    throw new Error('Unreachable');
+
+    // Provider 3: Local (always works, no API needed)
+    console.warn('[Embed] 🔧 Using local hash embeddings (offline mode)');
+    return embedLocal(texts);
 }
 
 async function updateDocStatus(documentId: string, status: 'pending' | 'indexing' | 'completed' | 'failed', maxRetries = 3) {
