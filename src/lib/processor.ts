@@ -141,7 +141,7 @@ export async function processUrl(documentId: string, url: string) {
 
                 if (!textContent) {
                     console.log(`[Processor] Captions unavailable for ${videoId}. Initiating AI Neural Reconstruction...`);
-                    const extractorModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                    const extractorModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
                     const prompt = `
                         This YouTube video has no captions available. 
                         As an expert AI Study Assistant, I need you to reconstruct the likely content/educational value of this video based on its metadata.
@@ -177,7 +177,7 @@ export async function processUrl(documentId: string, url: string) {
                 });
                 if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
                 const html = await response.text();
-                const extractorModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                const extractorModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
                 const prompt = `Extract the main article content from this HTML. Ignore ads/nav. Return ONLY text. HTML:\n${html.substring(0, 50000)}`;
                 const result = await extractorModel.generateContent(prompt);
                 textContent = result.response.text();

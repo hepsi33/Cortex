@@ -116,7 +116,7 @@ export async function POST(req: Request) {
       console.log(`[AI] Generating study notes...`);
       const { GoogleGenerativeAI } = await import("@google/generative-ai");
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
       const systemPrompt = "You are an expert tutor. Create concise, high-impact study notes. Use markdown with bold headers and bullet points. IMPORTANT: RETURN ONLY THE NOTES. NO CONVERSATIONAL FILLER. NO INTRODUCTIONS. NO 'OKAY' OR 'HERE IS THE SUMMARY'. START IMMEDIATELY WITH THE CONTENT.";
       const userPrompt = isMetadataFallback 
@@ -141,9 +141,9 @@ export async function POST(req: Request) {
       // Fallback: OpenRouter failover loop
       const { modelName } = await import("@/lib/openrouter");
       const modelsToTry = [
-        modelName || "google/gemini-flash-1.5-8b",
-        "google/gemini-2.0-flash-001",
-        "meta-llama/llama-3.1-8b-instruct:free"
+        modelName || "google/gemini-2.0-flash-001",
+        "google/gemini-2.0-flash-exp:free",
+        "meta-llama/llama-3-8b-instruct:free"
       ];
 
       for (const model of modelsToTry) {

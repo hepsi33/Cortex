@@ -11,8 +11,9 @@ export const openai = new OpenAI({
     },
 });
 
-export const modelName = "google/gemini-flash-1.5-8b"; // Or "mistralai/mistral-7b-instruct:free" or "google/gemma-7b-it:free"
+export const modelName = "google/gemini-2.0-flash-001"; // Primary OpenRouter model
 // Good free/cheap options on OpenRouter:
-// google/gemini-flash-1.5-8b (very cheap/free often)
+// google/gemini-2.0-flash-001
+// google/gemini-2.0-flash-exp:free
 // meta-llama/llama-3-8b-instruct:free
 // mistralai/mistral-7b-instruct:free

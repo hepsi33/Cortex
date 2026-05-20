@@ -47,3 +47,13 @@ next-env.d.ts
 temp-*
 debug-*
 test-*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+cortex-backend/.venv/
