@@ -85,38 +85,59 @@ export function DocumentManager({ workspaceId }: { workspaceId: string | null })
 
                 setUploadProgress(`Preparing: ${file.name}`);
 
+                const uploadQueue: number[] = [];
                 for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-                    const start = chunkIndex * CHUNK_SIZE;
-                    const end = Math.min(start + CHUNK_SIZE, file.size);
-                    const chunk = file.slice(start, end);
-
-                    setUploadProgress(`Uploading ${file.name} (${chunkIndex + 1}/${totalChunks})`);
-
-                    // Read chunk as base64
-                    const base64 = await new Promise<string>((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                            if (typeof reader.result === 'string') {
-                                resolve(reader.result.split(',')[1]);
-                            } else {
-                                reject(new Error('Invalid read result'));
-                            }
-                        };
-                        reader.onerror = reject;
-                        reader.readAsDataURL(chunk);
-                    });
-
-                    const formData = new FormData();
-                    formData.append("uploadId", uploadId);
-                    formData.append("chunkIndex", chunkIndex.toString());
-                    formData.append("totalChunks", totalChunks.toString());
-                    formData.append("data", base64);
-
-                    const chunkRes = await uploadChunkAction(formData);
-                    if (!chunkRes.success) {
-                        throw new Error(chunkRes.error || 'Failed to upload chunk');
-                    }
+                    uploadQueue.push(chunkIndex);
                 }
+
+                let completedChunks = 0;
+                const CONCURRENCY_LIMIT = 4;
+
+                const uploadWorker = async () => {
+                    while (uploadQueue.length > 0) {
+                        const chunkIndex = uploadQueue.shift();
+                        if (chunkIndex === undefined) break;
+
+                        const start = chunkIndex * CHUNK_SIZE;
+                        const end = Math.min(start + CHUNK_SIZE, file.size);
+                        const chunk = file.slice(start, end);
+
+                        // Read chunk as base64
+                        const base64 = await new Promise<string>((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                                if (typeof reader.result === 'string') {
+                                    resolve(reader.result.split(',')[1]);
+                                } else {
+                                    reject(new Error('Invalid read result'));
+                                }
+                            };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(chunk);
+                        });
+
+                        const formData = new FormData();
+                        formData.append("uploadId", uploadId);
+                        formData.append("chunkIndex", chunkIndex.toString());
+                        formData.append("totalChunks", totalChunks.toString());
+                        formData.append("data", base64);
+
+                        const chunkRes = await uploadChunkAction(formData);
+                        if (!chunkRes.success) {
+                            throw new Error(chunkRes.error || 'Failed to upload chunk');
+                        }
+
+                        completedChunks++;
+                        setUploadProgress(`Uploading ${file.name} (${completedChunks}/${totalChunks})`);
+                    }
+                };
+
+                const workers = [];
+                const limit = Math.min(CONCURRENCY_LIMIT, totalChunks);
+                for (let i = 0; i < limit; i++) {
+                    workers.push(uploadWorker());
+                }
+                await Promise.all(workers);
 
                 setUploadProgress(`Assembling: ${file.name}`);
 

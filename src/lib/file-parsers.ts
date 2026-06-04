@@ -6,7 +6,7 @@ import JSZip from 'jszip';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { hasBudget, isApproachingLimit, recordCall } from './api-budget';
+import { hasBudget, isApproachingLimit, recordCall, markProviderExhausted } from './api-budget';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -92,6 +92,12 @@ async function parsePdfWithGemini(buffer: Buffer): Promise<string> {
 
         const response = await result.response;
         return response.text();
+    } catch (err: any) {
+        const msg = err.message || '';
+        if (msg.includes('429') || msg.includes('quota') || msg.includes('Quota')) {
+            markProviderExhausted('gemini-generate');
+        }
+        throw err;
     } finally {
         if (fs.existsSync(tempPath)) {
             fs.unlinkSync(tempPath);
@@ -295,6 +301,9 @@ export async function parseImage(buffer: Buffer, mimeType: string): Promise<stri
                     continue;
                 }
                 console.warn(`[Parser] Gemini image attempt ${attempt + 1} failed: ${msg}`);
+                if (msg.includes('429') || msg.includes('quota') || msg.includes('Quota')) {
+                    markProviderExhausted('gemini-generate');
+                }
                 break; // Fall through to Groq
             }
         }

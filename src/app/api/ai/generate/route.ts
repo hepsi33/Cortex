@@ -80,16 +80,35 @@ export async function POST(req: Request) {
         fetchTimedText(videoId).then(text => { if (!text) throw new Error(); return text; }),
       ]).catch(() => "");
 
-      // OEMBED FALLBACK METADATA FETCH
+      // OEMBED & HTML FALLBACK METADATA FETCH
       if (!transcript) {
         try {
           console.log("[Transcript] Scrapers failed. Attempting oembed metadata fetch...");
           const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-          const oembedRes = await fetch(oembedUrl);
+          const oembedRes = await fetch(oembedUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+          });
           if (oembedRes.ok) {
             const oembedData = await oembedRes.json();
             videoTitle = oembedData.title || "";
             videoDescription = `Video ID: ${videoId}. Author: ${oembedData.author_name || 'Unknown'}. Captions and description unavailable due to scraping restrictions.`;
+          } else {
+            console.log("[Transcript] Oembed failed, trying HTML page fetch...");
+            const htmlRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9'
+              }
+            });
+            if (htmlRes.ok) {
+              const html = await htmlRes.text();
+              const ogTitleMatch = html.match(/<meta property="og:title" content="(.*?)">/) || html.match(/<meta name="title" content="(.*?)">/);
+              const ogDescMatch = html.match(/<meta property="og:description" content="(.*?)">/) || html.match(/<meta name="description" content="(.*?)">/);
+              if (ogTitleMatch) videoTitle = ogTitleMatch[1];
+              if (ogDescMatch) videoDescription = ogDescMatch[1];
+            }
           }
         } catch (oembedErr) {
           console.error("[Transcript] Oembed fetch failed:", oembedErr);

@@ -394,13 +394,33 @@ export async function processUrl(documentId: string, url: string) {
                     try {
                         console.log(`[Processor] Innertube failed completely. Attempting oembed metadata fetch...`);
                         const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-                        const oembedRes = await fetch(oembedUrl);
+                        const oembedRes = await fetch(oembedUrl, {
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                            }
+                        });
                         let oembedTitle = 'YouTube Video';
                         let oembedAuthor = 'Unknown';
+                        let oembedDesc = 'No description available';
                         if (oembedRes.ok) {
                             const oembedData = await oembedRes.json();
                             oembedTitle = oembedData.title || oembedTitle;
                             oembedAuthor = oembedData.author_name || oembedAuthor;
+                        } else {
+                            console.log(`[Processor] Oembed failed, trying HTML page fetch...`);
+                            const htmlRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+                                headers: {
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                                    'Accept-Language': 'en-US,en;q=0.9'
+                                }
+                            });
+                            if (htmlRes.ok) {
+                                const html = await htmlRes.text();
+                                const ogTitleMatch = html.match(/<meta property="og:title" content="(.*?)">/) || html.match(/<meta name="title" content="(.*?)">/);
+                                const ogDescMatch = html.match(/<meta property="og:description" content="(.*?)">/) || html.match(/<meta name="description" content="(.*?)">/);
+                                if (ogTitleMatch) oembedTitle = ogTitleMatch[1];
+                                if (ogDescMatch) oembedDesc = ogDescMatch[1];
+                            }
                         }
                         
                         const prompt = `
@@ -409,6 +429,7 @@ export async function processUrl(documentId: string, url: string) {
                             
                             Title: ${oembedTitle}
                             Author: ${oembedAuthor}
+                            Description: ${oembedDesc}
                             Video ID: ${videoId}
                             
                             Please provide a detailed "Artificial Transcript" or "Knowledge Synthesis" that represents what this video covers. 

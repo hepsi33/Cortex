@@ -107,6 +107,17 @@ export function remaining(provider: string): number {
 }
 
 /**
+ * Mark a provider as exhausted (e.g. on hitting quota/429 errors)
+ */
+export function markProviderExhausted(provider: string) {
+    const budget = budgets[provider];
+    if (!budget) return;
+    maybeReset(provider);
+    budget.dailyCalls = budget.dailyLimit; // Set usage to max to prevent further calls today
+    console.warn(`[Budget] 🚫 Provider ${provider} marked as EXHAUSTED for the rest of today.`);
+}
+
+/**
  * Get a summary of all budget statuses. Useful for logging.
  */
 export function getBudgetSummary(): Record<string, { used: number; limit: number; pct: number }> {
