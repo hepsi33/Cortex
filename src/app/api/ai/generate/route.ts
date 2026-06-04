@@ -79,6 +79,22 @@ export async function POST(req: Request) {
         YoutubeTranscript.fetchTranscript(videoId).then(items => items.map(i => i.text).join(" ")),
         fetchTimedText(videoId).then(text => { if (!text) throw new Error(); return text; }),
       ]).catch(() => "");
+
+      // OEMBED FALLBACK METADATA FETCH
+      if (!transcript) {
+        try {
+          console.log("[Transcript] Scrapers failed. Attempting oembed metadata fetch...");
+          const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+          const oembedRes = await fetch(oembedUrl);
+          if (oembedRes.ok) {
+            const oembedData = await oembedRes.json();
+            videoTitle = oembedData.title || "";
+            videoDescription = `Video ID: ${videoId}. Author: ${oembedData.author_name || 'Unknown'}. Captions and description unavailable due to scraping restrictions.`;
+          }
+        } catch (oembedErr) {
+          console.error("[Transcript] Oembed fetch failed:", oembedErr);
+        }
+      }
     }
 
     // Determine content for AI
@@ -133,36 +149,64 @@ export async function POST(req: Request) {
       noteSource = 'gemini';
     } catch (geminiErr: any) {
       console.warn(`[AI] Native Gemini failed:`, geminiErr.message);
-      
-      // Fallback: OpenRouter failover loop
-      const { modelName } = await import("@/lib/openrouter");
-      const modelsToTry = [
-        modelName || "google/gemini-2.0-flash-001",
-        "google/gemini-2.0-flash-exp:free",
-        "meta-llama/llama-3-8b-instruct:free"
-      ];
 
-      for (const model of modelsToTry) {
+      // Fallback 1: Groq
+      if (process.env.GROQ_API_KEY) {
         try {
-          console.log(`[AI] Attempting fallback with OpenRouter model: ${model}`);
-          const completion = await openai.chat.completions.create({
-            model: model,
+          console.log(`[AI] Attempting fallback with Groq...`);
+          const { Groq } = await import('groq-sdk');
+          const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
+          const userPrompt = isMetadataFallback 
+            ? `I couldn't get the transcript for this video. Here is the video info. Create a structured summary based on this:\n\nTITLE: ${videoTitle}\n\nDESCRIPTION: ${videoDescription}`
+            : `Create detailed study notes for this transcript:\n\n${aiInput.slice(0, 20000)}`;
+          const completion = await groqClient.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
             messages: [
               { role: "system", content: "You are an expert tutor. Create concise, high-impact study notes. Use markdown with bold headers and bullet points." },
-              { role: "user", content: isMetadataFallback 
-                  ? `I couldn't get the transcript for this video. Here is the video info. Create a structured summary based on this:\n\n${aiInput}`
-                  : `Create detailed study notes for this transcript:\n\n${aiInput.slice(0, 20000)}` 
-              },
-            ],
-            temperature: 0.3,
+              { role: "user", content: userPrompt }
+            ]
           });
-          notes = completion?.choices?.[0]?.message?.content ?? "";
+          notes = completion.choices[0]?.message?.content ?? "";
           if (notes) {
             noteSource = 'openrouter';
-            break;
+            console.log(`[AI] Groq fallback successful.`);
           }
-        } catch (err: any) {
-          console.warn(`[AI] Fallback model ${model} failed:`, err.message);
+        } catch (groqErr: any) {
+          console.warn(`[AI] Groq fallback failed:`, groqErr.message);
+        }
+      }
+      
+      if (!notes) {
+        // Fallback 2: OpenRouter failover loop
+        const { modelName } = await import("@/lib/openrouter");
+        const modelsToTry = [
+          modelName || "google/gemini-2.0-flash-001",
+          "google/gemini-2.0-flash-exp:free",
+          "meta-llama/llama-3-8b-instruct:free"
+        ];
+
+        for (const model of modelsToTry) {
+          try {
+            console.log(`[AI] Attempting fallback with OpenRouter model: ${model}`);
+            const completion = await openai.chat.completions.create({
+              model: model,
+              messages: [
+                { role: "system", content: "You are an expert tutor. Create concise, high-impact study notes. Use markdown with bold headers and bullet points." },
+                { role: "user", content: isMetadataFallback 
+                    ? `I couldn't get the transcript for this video. Here is the video info. Create a structured summary based on this:\n\n${aiInput}`
+                    : `Create detailed study notes for this transcript:\n\n${aiInput.slice(0, 20000)}` 
+                },
+              ],
+              temperature: 0.3,
+            });
+            notes = completion?.choices?.[0]?.message?.content ?? "";
+            if (notes) {
+              noteSource = 'openrouter';
+              break;
+            }
+          } catch (err: any) {
+            console.warn(`[AI] Fallback model ${model} failed:`, err.message);
+          }
         }
       }
     }
