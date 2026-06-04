@@ -213,19 +213,44 @@ export async function processUpload(documentId: string, buffer: Buffer, fileType
 
         let textContent = '';
 
-        console.log(`[Processor] Parsing ${fileType}...`);
-        switch (fileType) {
+        // Resolve MIME type from file extension if the browser provided something unreliable
+        let resolvedType = fileType;
+        if (!resolvedType || resolvedType === 'application/octet-stream' || resolvedType === '') {
+            const ext = originalName.split('.').pop()?.toLowerCase();
+            const extToMime: Record<string, string> = {
+                'pdf': 'application/pdf',
+                'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'doc': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                'ppt': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                'jpg': 'image/jpeg',
+                'jpeg': 'image/jpeg',
+                'png': 'image/png',
+                'gif': 'image/gif',
+                'webp': 'image/webp',
+                'txt': 'text/plain',
+                'md': 'text/markdown',
+                'csv': 'text/csv',
+            };
+            if (ext && extToMime[ext]) {
+                resolvedType = extToMime[ext];
+                console.log(`[Processor] Resolved MIME type from extension .${ext}: ${resolvedType}`);
+            }
+        }
+
+        console.log(`[Processor] Parsing ${resolvedType}...`);
+        switch (resolvedType) {
             case 'application/pdf': textContent = await parsePdf(buffer); break;
             case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': textContent = await parseDocx(buffer); break;
             case 'application/vnd.openxmlformats-officedocument.presentationml.presentation': textContent = await parsePptx(buffer); break;
             case 'image/jpeg':
             case 'image/png':
             case 'image/gif':
-            case 'image/webp': textContent = await parseImage(buffer, fileType); break;
+            case 'image/webp': textContent = await parseImage(buffer, resolvedType); break;
             case 'text/plain':
             case 'text/markdown':
             case 'text/csv': textContent = await parseText(buffer); break;
-            default: throw new Error(`Unsupported file type: ${fileType}`);
+            default: throw new Error(`Unsupported file type: ${resolvedType} (original: ${fileType})`);
         }
 
         if (!textContent || textContent.trim().length === 0) {
@@ -317,16 +342,30 @@ export async function processUrl(documentId: string, url: string) {
         const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
 
         if (isYoutube) {
-            const { Innertube } = await import('youtubei.js');
-            const youtube = await Innertube.create();
             const { extractVideoId, resolveVideoId } = await import('./youtube');
             const rawVideoId = extractVideoId(url);
             if (!rawVideoId) throw new Error("Invalid YouTube ID");
             const videoId = await resolveVideoId(rawVideoId);
 
+            let videoAuthor = 'Unknown';
+            let videoDesc = '';
+
             try {
-                const info = await youtube.getInfo(videoId);
+                // Timeout wrapper for Innertube (prevent background processing hangs)
+                const innertubeTimeout = new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error('Innertube timed out')), 15000)
+                );
+
+                const innertubeWork = (async () => {
+                    const { Innertube } = await import('youtubei.js');
+                    const youtube = await Innertube.create();
+                    return await youtube.getInfo(videoId);
+                })();
+
+                const info = await Promise.race([innertubeWork, innertubeTimeout]);
                 title = info.basic_info.title ?? url;
+                videoAuthor = info.basic_info.author ?? 'Unknown';
+                videoDesc = info.basic_info.short_description ?? '';
 
                 // Strategy 1: Innertube getTranscript()
                 try {
@@ -345,17 +384,24 @@ export async function processUrl(documentId: string, url: string) {
                 if (!textContent || textContent.trim().length < 50) {
                     console.log(`[Processor] Trying fallback transcript scrapers for ${videoId}...`);
                     try {
-                        textContent = await Promise.any([
-                            YoutubeTranscript.fetchTranscript(videoId).then(items => {
-                                const text = items.map(i => i.text).join(' ');
-                                console.log(`[Processor] ✅ youtube-transcript lib succeeded (${text.length} chars)`);
-                                return text;
-                            }),
-                            fetchTimedText(videoId).then(text => {
-                                if (!text) throw new Error('timedtext empty');
-                                console.log(`[Processor] ✅ timedtext API succeeded (${text.length} chars)`);
-                                return text;
-                            }),
+                        const scraperTimeout = new Promise<never>((_, reject) =>
+                            setTimeout(() => reject(new Error('Scrapers timed out')), 5000)
+                        );
+                        textContent = await Promise.race([
+                            Promise.any([
+                                YoutubeTranscript.fetchTranscript(videoId).then(items => {
+                                    const text = items.map(i => i.text).filter(t => t.trim().length > 0).join(' ');
+                                    if (!text) throw new Error('youtube-transcript returned empty');
+                                    console.log(`[Processor] ✅ youtube-transcript lib succeeded (${text.length} chars)`);
+                                    return text;
+                                }),
+                                fetchTimedText(videoId).then(text => {
+                                    if (!text) throw new Error('timedtext empty');
+                                    console.log(`[Processor] ✅ timedtext API succeeded (${text.length} chars)`);
+                                    return text;
+                                }),
+                            ]),
+                            scraperTimeout
                         ]);
                     } catch {
                         console.warn(`[Processor] All fallback scrapers failed for ${videoId}`);
@@ -369,9 +415,9 @@ export async function processUrl(documentId: string, url: string) {
                         This YouTube video has no captions available. 
                         As an expert AI Study Assistant, I need you to reconstruct the likely content/educational value of this video based on its metadata.
                         
-                        Title: ${info.basic_info.title}
-                        Description: ${info.basic_info.short_description ?? 'No description'}
-                        Author: ${info.basic_info.author ?? 'Unknown'}
+                        Title: ${title}
+                        Description: ${videoDesc || 'No description'}
+                        Author: ${videoAuthor}
                         
                         Please provide a detailed "Artificial Transcript" or "Knowledge Synthesis" that represents what this video covers. 
                         Format it as a clean, long-form text that I can index for RAG.
@@ -385,29 +431,42 @@ export async function processUrl(documentId: string, url: string) {
                 
                 // Even if Innertube completely crashes, try the standalone scrapers
                 try {
-                    textContent = await Promise.any([
-                        YoutubeTranscript.fetchTranscript(videoId).then(items => items.map(i => i.text).join(' ')),
-                        fetchTimedText(videoId).then(text => { if (!text) throw new Error(); return text; }),
+                    const scraperTimeout = new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error('Scrapers timed out')), 5000)
+                    );
+                    textContent = await Promise.race([
+                        Promise.any([
+                            YoutubeTranscript.fetchTranscript(videoId).then(items => {
+                                const text = items.map(i => i.text).filter(t => t.trim().length > 0).join(' ');
+                                if (!text) throw new Error('youtube-transcript returned empty');
+                                return text;
+                            }),
+                            fetchTimedText(videoId).then(text => { if (!text) throw new Error(); return text; }),
+                        ]),
+                        scraperTimeout
                     ]);
                     console.log(`[Processor] ✅ Standalone scraper recovered transcript (${textContent.length} chars)`);
                 } catch {
+                    // All scrapers failed — try to fetch metadata for AI reconstruction
+                    let oembedTitle = title !== url ? title : 'YouTube Video';
+                    let oembedAuthor = videoAuthor;
+                    let oembedDesc = videoDesc || 'No description available';
+
                     try {
-                        console.log(`[Processor] Innertube failed completely. Attempting oembed metadata fetch...`);
+                        console.log(`[Processor] Scrapers failed. Attempting metadata fetch...`);
                         const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
                         const oembedRes = await fetch(oembedUrl, {
                             headers: {
                                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                             }
                         });
-                        let oembedTitle = 'YouTube Video';
-                        let oembedAuthor = 'Unknown';
-                        let oembedDesc = 'No description available';
                         if (oembedRes.ok) {
                             const oembedData = await oembedRes.json();
                             oembedTitle = oembedData.title || oembedTitle;
                             oembedAuthor = oembedData.author_name || oembedAuthor;
                         } else {
-                            console.log(`[Processor] Oembed failed, trying HTML page fetch...`);
+                            // Oembed failed, try HTML page fetch
+                            console.log(`[Processor] Oembed failed (${oembedRes.status}), trying HTML page fetch...`);
                             const htmlRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
                                 headers: {
                                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -422,7 +481,11 @@ export async function processUrl(documentId: string, url: string) {
                                 if (ogDescMatch) oembedDesc = ogDescMatch[1];
                             }
                         }
-                        
+                    } catch {
+                        console.warn(`[Processor] Metadata fetch failed`);
+                    }
+
+                    try {
                         const prompt = `
                             This YouTube video has no captions available and scraping was restricted. 
                             As an expert AI Study Assistant, I need you to reconstruct the likely content/educational value of this video based on its basic metadata.
@@ -437,10 +500,10 @@ export async function processUrl(documentId: string, url: string) {
                             Include key topics, potential takeaways, and a structured breakdown of the subject matter.
                         `;
                         const result = await generateWithLLMFallback(prompt);
-                        textContent = `[AI RECONSTRUCTED TRANSCRIPT - NO NATIVE CAPTIONS (OEMBED FALLBACK)]\n\n${result}`;
+                        textContent = `[AI RECONSTRUCTED TRANSCRIPT - NO NATIVE CAPTIONS (METADATA FALLBACK)]\n\n${result}`;
                     } catch (innerErr: any) {
                         // True last resort
-                        textContent = `Title: ${title}\nSource: ${url}\n\n[System Note: This video source was protected or unavailable for deep scraping. Please use a different source if detailed transcripts are required.]`;
+                        textContent = `Title: ${oembedTitle}\nAuthor: ${oembedAuthor}\nSource: ${url}\n\n[System Note: This video source was protected or unavailable for deep scraping. Please use a different source if detailed transcripts are required.]`;
                     }
                 }
             }

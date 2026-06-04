@@ -45,9 +45,18 @@ export async function POST(req: Request) {
     let videoChapters: any[] = [];
 
     try {
-      const { Innertube } = await import("youtubei.js");
-      const yt = await Innertube.create();
-      const info = await yt.getInfo(videoId);
+      // Timeout wrapper for Innertube (prevent Vercel serverless timeout)
+      const innertubeTimeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Innertube timed out')), 8000)
+      );
+
+      const innertubeWork = (async () => {
+        const { Innertube } = await import("youtubei.js");
+        const yt = await Innertube.create();
+        return await yt.getInfo(videoId);
+      })();
+
+      const info = await Promise.race([innertubeWork, innertubeTimeout]);
       
       // Get deep metadata for fallback
       videoTitle = info.basic_info.title ?? "";
@@ -63,6 +72,7 @@ export async function POST(req: Request) {
         console.warn("[Chapters] Extraction failed:", cErr);
       }
 
+      // Strategy 1: Innertube transcript
       try {
         const transcriptData = await info.getTranscript();
         if (transcriptData?.transcript?.content?.body?.initial_segments) {
@@ -73,48 +83,95 @@ export async function POST(req: Request) {
       } catch (tErr) {
         console.warn("[Transcript] info.getTranscript() failed:", tErr);
       }
+
+      // Strategy 2 & 3: Fallback scrapers (also tried in success path when transcript is empty)
+      if (!transcript || transcript.trim().length < 50) {
+        console.log("[Transcript] Innertube transcript empty, trying fallback scrapers...");
+        try {
+          const scraperTimeout = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Scrapers timed out')), 5000)
+          );
+          transcript = await Promise.race([
+            Promise.any([
+              YoutubeTranscript.fetchTranscript(videoId).then(items => {
+                const text = items.map(i => i.text).filter(t => t.trim().length > 0).join(" ");
+                if (!text) throw new Error("youtube-transcript returned empty");
+                return text;
+              }),
+              fetchTimedText(videoId).then(text => { if (!text) throw new Error(); return text; }),
+            ]),
+            scraperTimeout
+          ]);
+        } catch {
+          console.warn("[Transcript] All fallback scrapers failed or timed out");
+        }
+      }
     } catch (err) {
       console.error("[Transcript] youtubei.js core failed, trying scrapers:", err);
-      transcript = await Promise.any([
-        YoutubeTranscript.fetchTranscript(videoId).then(items => items.map(i => i.text).join(" ")),
-        fetchTimedText(videoId).then(text => { if (!text) throw new Error(); return text; }),
-      ]).catch(() => "");
+      try {
+        const scraperTimeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Scrapers timed out')), 5000)
+        );
+        transcript = await Promise.race([
+          Promise.any([
+            YoutubeTranscript.fetchTranscript(videoId).then(items => {
+              const text = items.map(i => i.text).filter(t => t.trim().length > 0).join(" ");
+              if (!text) throw new Error("youtube-transcript returned empty");
+              return text;
+            }),
+            fetchTimedText(videoId).then(text => { if (!text) throw new Error(); return text; }),
+          ]),
+          scraperTimeout
+        ]);
+      } catch {
+        transcript = "";
+      }
+    }
 
-      // OEMBED & HTML FALLBACK METADATA FETCH
-      if (!transcript) {
+    // METADATA FALLBACK: If we still have no transcript and no metadata, try oembed + HTML fetch
+    if ((!transcript || transcript.trim().length < 50) && (!videoTitle || !videoDescription)) {
+      console.log("[Transcript] No transcript or metadata. Attempting metadata fetch...");
+      try {
+        const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+        const oembedRes = await fetch(oembedUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          }
+        });
+        if (oembedRes.ok) {
+          const oembedData = await oembedRes.json();
+          videoTitle = oembedData.title || videoTitle;
+          if (!videoDescription) {
+            videoDescription = `Video by ${oembedData.author_name || 'Unknown'}. Captions unavailable.`;
+          }
+        }
+      } catch {
+        console.warn("[Transcript] Oembed fetch failed");
+      }
+
+      // HTML page fetch as last resort for metadata
+      if (!videoTitle) {
         try {
-          console.log("[Transcript] Scrapers failed. Attempting oembed metadata fetch...");
-          const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-          const oembedRes = await fetch(oembedUrl, {
+          console.log("[Transcript] Trying HTML page fetch for metadata...");
+          const htmlRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
             headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept-Language': 'en-US,en;q=0.9'
             }
           });
-          if (oembedRes.ok) {
-            const oembedData = await oembedRes.json();
-            videoTitle = oembedData.title || "";
-            videoDescription = `Video ID: ${videoId}. Author: ${oembedData.author_name || 'Unknown'}. Captions and description unavailable due to scraping restrictions.`;
-          } else {
-            console.log("[Transcript] Oembed failed, trying HTML page fetch...");
-            const htmlRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept-Language': 'en-US,en;q=0.9'
-              }
-            });
-            if (htmlRes.ok) {
-              const html = await htmlRes.text();
-              const ogTitleMatch = html.match(/<meta property="og:title" content="(.*?)">/) || html.match(/<meta name="title" content="(.*?)">/);
-              const ogDescMatch = html.match(/<meta property="og:description" content="(.*?)">/) || html.match(/<meta name="description" content="(.*?)">/);
-              if (ogTitleMatch) videoTitle = ogTitleMatch[1];
-              if (ogDescMatch) videoDescription = ogDescMatch[1];
-            }
+          if (htmlRes.ok) {
+            const html = await htmlRes.text();
+            const ogTitleMatch = html.match(/<meta property="og:title" content="(.*?)">/) || html.match(/<meta name="title" content="(.*?)">/);
+            const ogDescMatch = html.match(/<meta property="og:description" content="(.*?)">/) || html.match(/<meta name="description" content="(.*?)">/);
+            if (ogTitleMatch) videoTitle = ogTitleMatch[1];
+            if (ogDescMatch) videoDescription = ogDescMatch[1];
           }
-        } catch (oembedErr) {
-          console.error("[Transcript] Oembed fetch failed:", oembedErr);
+        } catch {
+          console.warn("[Transcript] HTML page fetch failed");
         }
       }
     }
+
 
     // Determine content for AI
     let aiInput = transcript;
