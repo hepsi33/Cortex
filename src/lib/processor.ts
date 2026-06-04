@@ -249,6 +249,65 @@ export async function processUpload(documentId: string, buffer: Buffer, fileType
     }
 }
 
+async function generateWithLLMFallback(prompt: string): Promise<string> {
+    // 1. Try Gemini
+    try {
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        if (text && text.trim().length > 0) return text;
+    } catch (e: any) {
+        console.warn(`[Processor] Gemini generation failed, trying Groq...: ${e.message}`);
+    }
+
+    // 2. Try Groq
+    if (process.env.GROQ_API_KEY) {
+        try {
+            const { Groq } = await import('groq-sdk');
+            const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+            const completion = await groq.chat.completions.create({
+                messages: [{ role: 'user', content: prompt }],
+                model: 'llama-3.3-70b-versatile',
+            });
+            const text = completion.choices[0]?.message?.content;
+            if (text && text.trim().length > 0) return text;
+        } catch (e: any) {
+            console.warn(`[Processor] Groq generation failed, trying OpenRouter...: ${e.message}`);
+        }
+    }
+
+    // 3. Try OpenRouter
+    if (process.env.OPENROUTER_API_KEY) {
+        try {
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+                },
+                body: JSON.stringify({
+                    model: 'google/gemini-2.5-flash',
+                    messages: [{ role: 'user', content: prompt }]
+                })
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const text = data.choices?.[0]?.message?.content;
+                if (text && text.trim().length > 0) return text;
+            } else {
+                const errText = await response.text();
+                console.warn(`[Processor] OpenRouter generation failed: ${response.status} - ${errText}`);
+            }
+        } catch (e: any) {
+            console.warn(`[Processor] OpenRouter generation failed: ${e.message}`);
+        }
+    }
+
+    throw new Error("All LLM providers failed for this request.");
+}
+
 export async function processUrl(documentId: string, url: string) {
     console.log(`[Processor] Starting URL: ${url}`);
     try {
@@ -306,7 +365,6 @@ export async function processUrl(documentId: string, url: string) {
                 // Strategy 4: AI Neural Reconstruction from metadata
                 if (!textContent || textContent.trim().length < 50) {
                     console.log(`[Processor] Captions unavailable for ${videoId}. Initiating AI Neural Reconstruction...`);
-                    const extractorModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
                     const prompt = `
                         This YouTube video has no captions available. 
                         As an expert AI Study Assistant, I need you to reconstruct the likely content/educational value of this video based on its metadata.
@@ -319,8 +377,8 @@ export async function processUrl(documentId: string, url: string) {
                         Format it as a clean, long-form text that I can index for RAG.
                         Include key topics, potential takeaways, and a structured breakdown of the subject matter.
                     `;
-                    const result = await extractorModel.generateContent(prompt);
-                    textContent = `[AI RECONSTRUCTED TRANSCRIPT - NO NATIVE CAPTIONS]\n\n${result.response.text()}`;
+                    const result = await generateWithLLMFallback(prompt);
+                    textContent = `[AI RECONSTRUCTED TRANSCRIPT - NO NATIVE CAPTIONS]\n\n${result}`;
                 }
             } catch (err: any) {
                 console.warn(`[Processor] Innertube core failed for ${videoId}: ${err.message}. Trying standalone scrapers...`);
@@ -333,8 +391,36 @@ export async function processUrl(documentId: string, url: string) {
                     ]);
                     console.log(`[Processor] ✅ Standalone scraper recovered transcript (${textContent.length} chars)`);
                 } catch {
-                    // True last resort
-                    textContent = `Title: ${title}\nSource: ${url}\n\n[System Note: This video source was protected or unavailable for deep scraping. Please use a different source if detailed transcripts are required.]`;
+                    try {
+                        console.log(`[Processor] Innertube failed completely. Attempting oembed metadata fetch...`);
+                        const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+                        const oembedRes = await fetch(oembedUrl);
+                        let oembedTitle = 'YouTube Video';
+                        let oembedAuthor = 'Unknown';
+                        if (oembedRes.ok) {
+                            const oembedData = await oembedRes.json();
+                            oembedTitle = oembedData.title || oembedTitle;
+                            oembedAuthor = oembedData.author_name || oembedAuthor;
+                        }
+                        
+                        const prompt = `
+                            This YouTube video has no captions available and scraping was restricted. 
+                            As an expert AI Study Assistant, I need you to reconstruct the likely content/educational value of this video based on its basic metadata.
+                            
+                            Title: ${oembedTitle}
+                            Author: ${oembedAuthor}
+                            Video ID: ${videoId}
+                            
+                            Please provide a detailed "Artificial Transcript" or "Knowledge Synthesis" that represents what this video covers. 
+                            Format it as a clean, long-form text that I can index for RAG.
+                            Include key topics, potential takeaways, and a structured breakdown of the subject matter.
+                        `;
+                        const result = await generateWithLLMFallback(prompt);
+                        textContent = `[AI RECONSTRUCTED TRANSCRIPT - NO NATIVE CAPTIONS (OEMBED FALLBACK)]\n\n${result}`;
+                    } catch (innerErr: any) {
+                        // True last resort
+                        textContent = `Title: ${title}\nSource: ${url}\n\n[System Note: This video source was protected or unavailable for deep scraping. Please use a different source if detailed transcripts are required.]`;
+                    }
                 }
             }
         } else {
@@ -352,10 +438,8 @@ export async function processUrl(documentId: string, url: string) {
                 });
                 if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
                 const html = await response.text();
-                const extractorModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
                 const prompt = `Extract the main article content from this HTML. Ignore ads/nav. Return ONLY text. HTML:\n${html.substring(0, 50000)}`;
-                const result = await extractorModel.generateContent(prompt);
-                textContent = result.response.text();
+                textContent = await generateWithLLMFallback(prompt);
             }
         }
 
