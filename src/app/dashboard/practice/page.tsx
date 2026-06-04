@@ -465,15 +465,9 @@ export default function PracticePage() {
                                     </div>
                                     <div className="relative">
                                         <Input 
-                                            placeholder={subscription && !subscription.isPremium ? "Topic customization is a Pro feature" : "Specific topic (optional)"}
+                                            placeholder="Specific topic (optional)"
                                             value={topic}
                                             onChange={(e) => setTopic(e.target.value)}
-                                            onClick={() => {
-                                                if (subscription && !subscription.isPremium) {
-                                                    router.push('/pricing');
-                                                }
-                                            }}
-                                            readOnly={subscription && !subscription.isPremium}
                                             className="h-16 bg-white/5 border-white/5 rounded-2xl px-6 text-sm focus:ring-0 placeholder:text-white/10"
                                         />
                                     </div>

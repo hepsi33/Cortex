@@ -128,6 +128,14 @@ export const messagesRelations = relations(messages, ({ one }) => ({
     }),
 }));
 
+export const uploadChunks = pgTable('upload_chunks', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    uploadId: text('upload_id').notNull(),
+    chunkIndex: integer('chunk_index').notNull(),
+    totalChunks: integer('total_chunks').notNull(),
+    data: text('data').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+});
 
 export type User = typeof profiles.$inferSelect;
 export type NewUser = typeof profiles.$inferInsert;
@@ -143,3 +151,5 @@ export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
 export type UsageTracking = typeof usage_tracking.$inferSelect;
 export type NewUsageTracking = typeof usage_tracking.$inferInsert;
+export type UploadChunk = typeof uploadChunks.$inferSelect;
+export type NewUploadChunk = typeof uploadChunks.$inferInsert;

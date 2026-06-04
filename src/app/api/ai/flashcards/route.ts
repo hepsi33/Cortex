@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { documents } from '@/drizzle/schema';
-import { eq } from 'drizzle-orm';
+import { documents, embeddings } from '@/drizzle/schema';
+import { eq, sql, inArray } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { Groq } from 'groq-sdk';
 import { checkAIGenerationLimit, incrementAIGeneration } from '@/lib/usage';
@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
         // Enforce Free Tier Limits
         if (subscription && !subscription.isPremium) {
             if (count > 5) count = 5; // Max 5 flashcards
-            topic = ''; // Topic customization locked
         }
 
         const isGuestWorkspace = workspaceId === "guest-workspace";
@@ -44,17 +43,60 @@ export async function POST(req: NextRequest) {
             // 1. Fetch workspace content
             const workspaceDocs = await db.query.documents.findMany({
                 where: eq(documents.workspaceId, workspaceId),
-                columns: { content: true, name: true }
+                columns: { id: true, content: true, name: true }
             });
 
             if (workspaceDocs.length === 0) {
                 return NextResponse.json({ error: 'No documents found in workspace.' }, { status: 400 });
             }
 
-            combinedText = workspaceDocs
-                .map(d => d.content)
-                .filter(Boolean)
-                .join('\n\n');
+            if (topic) {
+                // Perform vector similarity search for the topic in the workspace's documents
+                try {
+                    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+                    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+                    const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
+                    
+                    const embeddingResult = await model.embedContent(topic);
+                    const queryVector = embeddingResult.embedding.values;
+
+                    const docIds = workspaceDocs.map(d => d.id);
+                    if (docIds.length > 0) {
+                        const relevantChunks = await db.select({
+                            content: embeddings.content,
+                            dist: sql<number>`${embeddings.vector} <=> ${JSON.stringify(queryVector)}`
+                        })
+                            .from(embeddings)
+                            .where(inArray(embeddings.documentId, docIds))
+                            .orderBy(sql`${embeddings.vector} <=> ${JSON.stringify(queryVector)}`)
+                            .limit(8);
+
+                        combinedText = relevantChunks.map(c => c.content).join('\n\n');
+                    }
+                } catch (err) {
+                    console.error("Vector search failed for flashcard generation, falling back to keyword filter:", err);
+                }
+
+                // If vector search failed or returned nothing, fall back to case-insensitive keyword search
+                if (!combinedText || combinedText.trim().length === 0) {
+                    const matchingDocs = workspaceDocs.filter(d => 
+                        d.name.toLowerCase().includes(topic.toLowerCase()) || 
+                        (d.content && d.content.toLowerCase().includes(topic.toLowerCase()))
+                    );
+
+                    if (matchingDocs.length > 0) {
+                        combinedText = matchingDocs.map(d => d.content).filter(Boolean).join('\n\n');
+                    }
+                }
+            }
+
+            // Fallback if no topic or search returned nothing: combine all workspace docs
+            if (!combinedText || combinedText.trim().length === 0) {
+                combinedText = workspaceDocs
+                    .map(d => d.content)
+                    .filter(Boolean)
+                    .join('\n\n');
+            }
         }
 
         combinedText = combinedText.substring(0, 15000);

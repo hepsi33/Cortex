@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Check, X, Sparkles, ArrowLeft, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { FEATURE_FLAGS } from '@/config/features';
+import { useSession } from 'next-auth/react';
 
 const features = [
     { name: 'RAG Repositories', free: '3 max', pro: 'Unlimited' },
@@ -17,6 +18,7 @@ const features = [
 ];
 
 export default function PricingPage() {
+    const { data: session } = useSession();
     const [loading, setLoading] = useState(false);
     const [showContactMsg, setShowContactMsg] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -32,6 +34,12 @@ export default function PricingPage() {
     }, []);
 
     const handleCheckout = async () => {
+        const isGuest = session?.user?.id?.startsWith("guest_") || (session?.user as any)?.isGuest;
+        if (isGuest) {
+            window.location.href = '/login?mode=signup';
+            return;
+        }
+
         if (!FEATURE_FLAGS.ENABLE_STRIPE) {
             setShowContactMsg(true);
             return;

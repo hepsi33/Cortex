@@ -1,0 +1,149 @@
+=== 1. Database Entity-Relationship (ER) Diagram ===
+
+erDiagram
+    PROFILES ||--o{ WORKSPACES : "owns"
+    PROFILES ||--o{ DOCUMENTS : "uploads"
+    PROFILES ||--o{ CHATS : "creates"
+    PROFILES ||--o| USAGE_TRACKING : "has"
+    
+    WORKSPACES ||--o{ DOCUMENTS : "contains"
+    WORKSPACES ||--o{ CHATS : "contains"
+    
+    DOCUMENTS ||--o{ EMBEDDINGS : "broken into"
+    DOCUMENTS ||--o{ CHATS : "context for"
+    
+    CHATS ||--o{ MESSAGES : "contains"
+
+    PROFILES {
+        uuid id PK
+        string name
+        string email
+        string role "admin, user, pro"
+    }
+    WORKSPACES {
+        uuid id PK
+        uuid user_id FK
+        string name
+    }
+    DOCUMENTS {
+        uuid id PK
+        uuid user_id FK
+        uuid workspace_id FK
+        string name
+        string file_type
+        string status
+    }
+    EMBEDDINGS {
+        uuid id PK
+        uuid document_id FK
+        string content
+        vector vector "768 dimensions"
+    }
+    CHATS {
+        uuid id PK
+        uuid user_id FK
+        uuid workspace_id FK
+        uuid document_id FK
+        string title
+    }
+    MESSAGES {
+        uuid id PK
+        uuid chat_id FK
+        string role "user, assistant"
+        string content
+    }
+    USAGE_TRACKING {
+        uuid id PK
+        uuid user_id FK
+        int ai_generations
+    }
+
+
+=== 2. Full RAG Pipeline Flowchart ===
+
+flowchart TD
+    %% Ingestion Flow
+    subgraph Data Ingestion
+        A[User Uploads Document] --> B{File Type?}
+        B -- PDF/DOCX --> C[File Parser Service]
+        B -- URL --> D[Firecrawl Scraper]
+        B -- YouTube --> E[Transcript Extractor]
+        C --> F[Chunking Service]
+        D --> F
+        E --> F
+        F --> G[Gemini Embedding API]
+        G -->|Returns 768-dim Vector| H[(pgvector Database)]
+    end
+
+    %% Retrieval Flow
+    subgraph Retrieval & Generation
+        I[User Asks Question] --> J[Gemini Embedding API]
+        J -->|Generates Query Vector| K[Cosine Similarity Search]
+        H <-->|Vector Math `<=>`| K
+        K -->|Top-K Context Chunks| L[Groq Llama 3.3 LLM]
+        I --> L
+        L --> M[Synthesized Response]
+        M --> N[Next.js Frontend UI]
+    end
+
+
+=== 3. API Flow Sequence Diagram ===
+
+sequenceDiagram
+    actor User
+    participant Frontend as Next.js Client
+    participant Auth as Auth.js
+    participant API as /api/chat Route
+    participant DB as Neon Postgres (pgvector)
+    participant Gemini as Google Gemini API
+    participant Groq as Groq Cloud (LLM)
+
+    User->>Frontend: Send Message
+    Frontend->>Auth: Check Session Token
+    Auth-->>Frontend: Session Valid
+    Frontend->>API: POST {message, workspaceId}
+    
+    API->>DB: Fetch Chat History
+    DB-->>API: Returns Previous Messages
+    
+    API->>Gemini: Send User Message for Embedding
+    Gemini-->>API: Returns 768-dim Query Vector
+    
+    API->>DB: Cosine Similarity Search (Query Vector)
+    DB-->>API: Returns Relevant Document Chunks (Context)
+    
+    API->>Groq: Send Prompt + Context + History
+    Groq-->>API: Streamed Text Response
+    
+    API-->>Frontend: HTTP Stream
+    Frontend-->>User: Typing Animation Displays Answer
+
+
+=== 4. Deployment Architecture Diagram ===
+
+flowchart LR
+    User((Student / User))
+
+    subgraph Vercel Cloud Platform
+        UI[Next.js React Frontend]
+        API[Serverless API Routes]
+        UI <--> API
+    end
+
+    subgraph Neon Serverless Database
+        DB[(Relational Tables)]
+        VectorDB[(pgvector Extension)]
+    end
+
+    subgraph External Intelligence Services
+        Groq[Groq Llama 3.3]
+        Gemini[Google Gemini API]
+        Firecrawl[Firecrawl Web Scraper]
+    end
+
+    User <-->|HTTPS| UI
+    API <-->|Drizzle ORM| DB
+    API <-->|Similarity Search| VectorDB
+    API <-->|LLM Inference| Groq
+    API <-->|Vectorization| Gemini
+    API <-->|Web Scraping| Firecrawl

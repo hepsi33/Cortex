@@ -260,8 +260,10 @@ export async function processUrl(documentId: string, url: string) {
         if (isYoutube) {
             const { Innertube } = await import('youtubei.js');
             const youtube = await Innertube.create();
-            const videoId = url.includes('v=') ? url.split('v=')[1].split('&')[0] : url.split('/').pop();
-            if (!videoId) throw new Error("Invalid YouTube ID");
+            const { extractVideoId, resolveVideoId } = await import('./youtube');
+            const rawVideoId = extractVideoId(url);
+            if (!rawVideoId) throw new Error("Invalid YouTube ID");
+            const videoId = await resolveVideoId(rawVideoId);
 
             try {
                 const info = await youtube.getInfo(videoId);

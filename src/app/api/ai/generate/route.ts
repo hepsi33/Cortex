@@ -2,14 +2,9 @@ import { NextResponse } from "next/server";
 import { YoutubeTranscript } from "youtube-transcript";
 import { openai } from "@/lib/openrouter";
 import { auth } from "@/lib/auth";
+import { extractVideoId, resolveVideoId } from "@/lib/youtube";
 
 export const dynamic = "force-dynamic";
-
-function extractVideoId(url: string) {
-  const regex = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/;
-  const match = url.match(regex);
-  return match ? match[1] : null;
-}
 
 function cleanCaptionText(input: string): string {
   if (!input) return "";
@@ -40,8 +35,9 @@ export async function POST(req: Request) {
     if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { videoUrl } = await req.json();
-    const videoId = extractVideoId(videoUrl);
-    if (!videoId) return NextResponse.json({ error: "Invalid YouTube URL" }, { status: 400 });
+    const rawVideoId = extractVideoId(videoUrl);
+    if (!rawVideoId) return NextResponse.json({ error: "Invalid YouTube URL" }, { status: 400 });
+    const videoId = await resolveVideoId(rawVideoId);
 
     let transcript = "";
     let videoTitle = "";

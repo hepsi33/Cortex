@@ -55,6 +55,7 @@ export default function FocusPage() {
     const [completedMilestones, setCompletedMilestones] = useState<number[]>([]);
     const [savedFocusTime, setSavedFocusTime] = useState<number | null>(null);
     const [breakWarning, setBreakWarning] = useState(false);
+    const [showProPrompt, setShowProPrompt] = useState(false);
 
     const audioElements = useRef<Record<string, HTMLAudioElement>>({});
     const ytPlayers = useRef<Record<string, any>>({});
@@ -535,7 +536,14 @@ export default function FocusPage() {
                                     <Slider 
                                         value={[studyMins]} 
                                         onValueChange={(v) => {
-                                            setStudyMins(v[0]);
+                                            const val = v[0];
+                                            if (val > 60 && !subscription?.isPremium) {
+                                                setStudyMins(60);
+                                                setShowProPrompt(true);
+                                            } else {
+                                                setStudyMins(val);
+                                                setShowProPrompt(false);
+                                            }
                                         }}
                                         min={10} max={240} step={5}
                                     />
@@ -554,6 +562,30 @@ export default function FocusPage() {
                                         min={5} max={60} step={5}
                                     />
                                 </div>
+
+                                <AnimatePresence>
+                                    {showProPrompt && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: 10 }}
+                                            className="p-5 rounded-2xl bg-[#e100ff]/10 border border-[#e100ff]/20 text-center space-y-3"
+                                        >
+                                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#e100ff]">
+                                                Cortex Pro Required
+                                            </p>
+                                            <p className="text-[9px] text-white/50 font-bold uppercase leading-relaxed">
+                                                Free sessions are limited to 1 hour. Upgrade to Pro for sessions up to 4 hours.
+                                            </p>
+                                            <button
+                                                onClick={() => window.location.href = '/pricing'}
+                                                className="w-full h-10 bg-[#e100ff] text-white hover:bg-[#e100ff]/80 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg"
+                                            >
+                                                Upgrade to Pro
+                                            </button>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
 
                             <button 

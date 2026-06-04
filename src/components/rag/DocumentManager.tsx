@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, Link as LinkIcon, File, X, Loader2, CheckCircle2, AlertCircle, Globe, Youtube, Trash2, CheckSquare, Square, ExternalLink, Sparkles } from "lucide-react";
-import { uploadDocumentAction } from "@/lib/actions/upload-action";
+import { uploadDocumentAction, uploadChunkAction, assembleUploadAction } from "@/lib/actions/upload-action";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -32,6 +32,7 @@ export function DocumentManager({ workspaceId }: { workspaceId: string | null })
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [url, setUrl] = useState("");
     const [uploading, setUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState<string | null>(null);
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [showUrlDialog, setShowUrlDialog] = useState(false);
@@ -78,11 +79,54 @@ export function DocumentManager({ workspaceId }: { workspaceId: string | null })
         setUploading(true);
         try {
             for (const file of Array.from(files)) {
-                const formData = new FormData();
-                formData.append("file", file);
-                formData.append("workspaceId", workspaceId || "");
+                const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunks
+                const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+                const uploadId = crypto.randomUUID();
 
-                const res = await uploadDocumentAction(formData);
+                setUploadProgress(`Preparing: ${file.name}`);
+
+                for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+                    const start = chunkIndex * CHUNK_SIZE;
+                    const end = Math.min(start + CHUNK_SIZE, file.size);
+                    const chunk = file.slice(start, end);
+
+                    setUploadProgress(`Uploading ${file.name} (${chunkIndex + 1}/${totalChunks})`);
+
+                    // Read chunk as base64
+                    const base64 = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            if (typeof reader.result === 'string') {
+                                resolve(reader.result.split(',')[1]);
+                            } else {
+                                reject(new Error('Invalid read result'));
+                            }
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(chunk);
+                    });
+
+                    const formData = new FormData();
+                    formData.append("uploadId", uploadId);
+                    formData.append("chunkIndex", chunkIndex.toString());
+                    formData.append("totalChunks", totalChunks.toString());
+                    formData.append("data", base64);
+
+                    const chunkRes = await uploadChunkAction(formData);
+                    if (!chunkRes.success) {
+                        throw new Error(chunkRes.error || 'Failed to upload chunk');
+                    }
+                }
+
+                setUploadProgress(`Assembling: ${file.name}`);
+
+                const assembleData = new FormData();
+                assembleData.append("uploadId", uploadId);
+                assembleData.append("fileName", file.name);
+                assembleData.append("fileType", file.type);
+                assembleData.append("workspaceId", workspaceId || "");
+
+                const res = await assembleUploadAction(assembleData);
                 
                 if (!res.success) {
                     if (res.error === 'Limit Reached') {
@@ -100,6 +144,7 @@ export function DocumentManager({ workspaceId }: { workspaceId: string | null })
             alert(`Connection error during upload: ${err?.message || err || 'Unknown error'}. Please try again.`);
         } finally {
             setUploading(false);
+            setUploadProgress(null);
             e.target.value = '';
         }
     };
@@ -202,7 +247,9 @@ export function DocumentManager({ workspaceId }: { workspaceId: string | null })
                         </div>
 
                         <div className="flex-1 flex flex-col justify-center">
-                            <p className="text-xs font-black uppercase tracking-widest text-white/60">Upload Documents</p>
+                            <p className="text-xs font-black uppercase tracking-widest text-white/60">
+                                {uploadProgress || "Upload Documents"}
+                            </p>
                         </div>
 
                         <Dialog open={showUrlDialog} onOpenChange={setShowUrlDialog}>
