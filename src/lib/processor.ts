@@ -353,7 +353,7 @@ export async function processUrl(documentId: string, url: string) {
             try {
                 // Timeout wrapper for Innertube (prevent background processing hangs)
                 const innertubeTimeout = new Promise<never>((_, reject) =>
-                    setTimeout(() => reject(new Error('Innertube timed out')), 15000)
+                    setTimeout(() => reject(new Error('Innertube timed out')), 30000)
                 );
 
                 const innertubeWork = (async () => {
@@ -477,8 +477,22 @@ export async function processUrl(documentId: string, url: string) {
                                 const html = await htmlRes.text();
                                 const ogTitleMatch = html.match(/<meta property="og:title" content="(.*?)">/) || html.match(/<meta name="title" content="(.*?)">/);
                                 const ogDescMatch = html.match(/<meta property="og:description" content="(.*?)">/) || html.match(/<meta name="description" content="(.*?)">/);
-                                if (ogTitleMatch) oembedTitle = ogTitleMatch[1];
-                                if (ogDescMatch) oembedDesc = ogDescMatch[1];
+                                
+                                if (ogTitleMatch && ogTitleMatch[1] !== 'YouTube') oembedTitle = ogTitleMatch[1];
+                                if (ogDescMatch && !ogDescMatch[1].includes('Enjoy the videos and music you love')) {
+                                    oembedDesc = ogDescMatch[1];
+                                } else {
+                                    // YouTube returned the generic EU consent / bot challenge page.
+                                    console.log(`[Processor] Generic YouTube HTML detected. Trying Firecrawl...`);
+                                    try {
+                                        const firecrawlMd = await scrapeUrl(`https://www.youtube.com/watch?v=${videoId}`);
+                                        if (firecrawlMd) {
+                                            oembedDesc = firecrawlMd.substring(0, 1500); // Send the first chunk of scraped Markdown as context
+                                        }
+                                    } catch (fcErr) {
+                                        console.warn(`[Processor] Firecrawl fallback failed`);
+                                    }
+                                }
                             }
                         }
                     } catch {
