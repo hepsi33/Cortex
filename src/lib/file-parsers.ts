@@ -101,63 +101,80 @@ async function parsePdfWithGemini(buffer: Buffer): Promise<string> {
 
 /**
  * Groq vision fallback for PDF OCR.
- * Converts first pages to base64 images and uses Groq's vision model.
- * Limited to ~4MB of base64 input.
+ * Converts first pages to PNG screenshots and uses Groq's vision model.
  */
 async function parsePdfWithGroq(buffer: Buffer): Promise<string> {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) throw new Error('GROQ_API_KEY not set for vision fallback');
 
-    console.log(`[Parser] Using Groq vision for PDF OCR...`);
+    console.log(`[Parser] Using Groq vision for PDF OCR (rendering pages as screenshots)...`);
     
-    // For Groq, we send the PDF as base64 inline (limited to ~4MB)
-    const maxSize = 4 * 1024 * 1024;
-    const pdfBuffer = buffer.length > maxSize ? buffer.subarray(0, maxSize) : buffer;
-    const base64 = pdfBuffer.toString('base64');
+    try {
+        const { PDFParse } = await import('pdf-parse');
+        const uint8 = new Uint8Array(buffer);
+        const parser = new PDFParse({ data: uint8 });
+        
+        // Render first 5 pages to screenshots
+        const result = await parser.getScreenshot({
+            first: 5,
+            imageDataUrl: true,
+            imageBuffer: false
+        });
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            model: 'llama-3.2-90b-vision-preview',
-            messages: [
-                {
-                    role: 'user',
-                    content: [
-                        {
-                            type: 'image_url',
-                            image_url: { url: `data:application/pdf;base64,${base64}` }
-                        },
-                        {
-                            type: 'text',
-                            text: 'Extract all the text from this document exactly as it appears. Maintain headings, lists, and structure. If there are diagrams, describe them briefly.'
-                        }
-                    ]
-                }
-            ],
-            temperature: 0.1,
-            max_tokens: 8000,
-        }),
-    });
+        if (result.pages.length === 0) {
+            throw new Error("No pages rendered");
+        }
 
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Groq vision failed (${response.status}): ${errText.substring(0, 200)}`);
+        // Map pages to image_url items for Groq message
+        const contentItems: any[] = result.pages.map(page => ({
+            type: 'image_url',
+            image_url: { url: page.dataUrl }
+        }));
+
+        contentItems.push({
+            type: 'text',
+            text: 'Extract all the text from this document exactly as it appears. Maintain headings, lists, and structure. If there are diagrams, describe them briefly.'
+        });
+
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+                messages: [
+                    {
+                        role: 'user',
+                        content: contentItems
+                    }
+                ],
+                temperature: 0.1,
+                max_tokens: 8000,
+            }),
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Groq vision failed (${response.status}): ${errText.substring(0, 200)}`);
+        }
+
+        const data = await response.json();
+        recordCall('groq-generate');
+        const text = data.choices?.[0]?.message?.content || '';
+        
+        if (!text || text.trim().length < 20) {
+            throw new Error('Groq vision returned insufficient text');
+        }
+        
+        console.log(`[Parser] Groq vision OCR success: ${text.length} chars extracted`);
+        return text;
+
+    } catch (e: any) {
+        console.error(`[Parser] Groq vision PDF render/OCR failed: ${e.message}`);
+        throw new Error(`Groq vision PDF OCR failed: ${e.message}`);
     }
-
-    const data = await response.json();
-    recordCall('groq-generate');
-    const text = data.choices?.[0]?.message?.content || '';
-    
-    if (!text || text.trim().length < 20) {
-        throw new Error('Groq vision returned insufficient text');
-    }
-    
-    console.log(`[Parser] Groq vision OCR success: ${text.length} chars extracted`);
-    return text;
 }
 
 export async function parseDocx(buffer: Buffer): Promise<string> {
@@ -295,7 +312,7 @@ export async function parseImage(buffer: Buffer, mimeType: string): Promise<stri
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'llama-3.2-90b-vision-preview',
+                    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
                     messages: [{
                         role: 'user',
                         content: [
