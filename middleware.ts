@@ -20,6 +20,12 @@ export default auth((req) => {
 
     // 1. Redirect logged-in users away from auth pages (login/signup)
     if (isAuthRoute && isLoggedIn) {
+        // Allow Guest users to access login/signup pages so they can upgrade
+        const isGuest = (req.auth?.user as any)?.isGuest;
+        if (isGuest) {
+            return null;
+        }
+
         console.log(`[Middleware] Authenticated user on auth route (${pathname}). Redirecting.`);
         const role = req.auth?.user?.role;
         if (role === 'admin') {
