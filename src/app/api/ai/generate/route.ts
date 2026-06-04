@@ -220,15 +220,15 @@ export async function POST(req: Request) {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
       const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-      const systemPrompt = "You are an expert tutor. Create concise, high-impact study notes. Use markdown with bold headers and bullet points. IMPORTANT: RETURN ONLY THE NOTES. NO CONVERSATIONAL FILLER. NO INTRODUCTIONS. NO 'OKAY' OR 'HERE IS THE SUMMARY'. START IMMEDIATELY WITH THE CONTENT.";
+      const systemPrompt = "You are an expert tutor. Create comprehensive, highly-detailed study notes. Exhaustively cover all key concepts, providing as much depth as possible. Use markdown with bold headers and bullet points. IMPORTANT: RETURN ONLY THE NOTES. NO CONVERSATIONAL FILLER. NO INTRODUCTIONS. NO 'OKAY' OR 'HERE IS THE SUMMARY'. START IMMEDIATELY WITH THE CONTENT.";
       const userPrompt = isMetadataFallback 
         ? `[EMERGENCY METADATA FALLBACK]
-           I was unable to get the transcript. You MUST create a high-level summary based ONLY on this title and description. 
-           Do NOT say you need more info. Do NOT say you can't do it. Just provide a conceptual overview of what this video is likely about based on these details:
+           I was unable to get the transcript. You MUST create a comprehensive, highly-detailed summary based ONLY on this title and description. 
+           Do NOT say you need more info. Do NOT say you can't do it. Just provide an exhaustive conceptual overview of what this video is likely about based on these details:
            
            Video Title: ${videoTitle}
            Description: ${videoDescription}`
-        : `Create detailed study notes for this transcript:\n\n${aiInput.slice(0, 30000)}`;
+        : `Create comprehensive, highly-detailed study notes for this transcript. Be exhaustive and capture all important details:\n\n${aiInput.slice(0, 30000)}`;
 
       const result = await model.generateContent([systemPrompt, userPrompt]);
       let finalNotes = result.response.text();
@@ -247,12 +247,12 @@ export async function POST(req: Request) {
           const { Groq } = await import('groq-sdk');
           const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
           const userPrompt = isMetadataFallback 
-            ? `I couldn't get the transcript for this video. Here is the video info. Create a structured summary based on this:\n\nTITLE: ${videoTitle}\n\nDESCRIPTION: ${videoDescription}`
-            : `Create detailed study notes for this transcript:\n\n${aiInput.slice(0, 20000)}`;
+            ? `I couldn't get the transcript for this video. Here is the video info. Create a comprehensive, highly-detailed structured summary based on this:\n\nTITLE: ${videoTitle}\n\nDESCRIPTION: ${videoDescription}`
+            : `Create comprehensive, highly-detailed study notes for this transcript. Be exhaustive and capture all important details:\n\n${aiInput.slice(0, 30000)}`;
           const completion = await groqClient.chat.completions.create({
             model: 'llama-3.3-70b-versatile',
             messages: [
-              { role: "system", content: "You are an expert tutor. Create concise, high-impact study notes. Use markdown with bold headers and bullet points." },
+              { role: "system", content: "You are an expert tutor. Create comprehensive, highly-detailed study notes. Use markdown with bold headers and bullet points." },
               { role: "user", content: userPrompt }
             ]
           });
