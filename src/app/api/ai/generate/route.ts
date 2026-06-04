@@ -3,6 +3,7 @@ import { YoutubeTranscript } from "youtube-transcript";
 import { openai } from "@/lib/openrouter";
 import { auth } from "@/lib/auth";
 import { extractVideoId, resolveVideoId } from "@/lib/youtube";
+import { scrapeUrl } from "@/lib/firecrawl";
 
 export const dynamic = "force-dynamic";
 
@@ -163,8 +164,21 @@ export async function POST(req: Request) {
             const html = await htmlRes.text();
             const ogTitleMatch = html.match(/<meta property="og:title" content="(.*?)">/) || html.match(/<meta name="title" content="(.*?)">/);
             const ogDescMatch = html.match(/<meta property="og:description" content="(.*?)">/) || html.match(/<meta name="description" content="(.*?)">/);
-            if (ogTitleMatch) videoTitle = ogTitleMatch[1];
-            if (ogDescMatch) videoDescription = ogDescMatch[1];
+            
+            if (ogTitleMatch && ogTitleMatch[1] !== 'YouTube') videoTitle = ogTitleMatch[1];
+            if (ogDescMatch && !ogDescMatch[1].includes('Enjoy the videos and music you love')) {
+                videoDescription = ogDescMatch[1];
+            } else {
+                console.log(`[Transcript] Generic YouTube HTML detected. Trying Firecrawl...`);
+                try {
+                    const firecrawlMd = await scrapeUrl(`https://www.youtube.com/watch?v=${videoId}`);
+                    if (firecrawlMd) {
+                        videoDescription = firecrawlMd.substring(0, 1500);
+                    }
+                } catch (fcErr) {
+                    console.warn(`[Transcript] Firecrawl fallback failed`);
+                }
+            }
           }
         } catch {
           console.warn("[Transcript] HTML page fetch failed");
