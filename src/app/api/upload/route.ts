@@ -5,8 +5,9 @@ import { auth } from '@/lib/auth';
 import { eq } from 'drizzle-orm';
 
 const isValidUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
- 
- 
+
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
     try {
         const session = await auth();

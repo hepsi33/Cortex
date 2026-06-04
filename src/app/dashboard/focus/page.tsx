@@ -19,7 +19,7 @@ declare global {
 }
 
 const wallpapers = [
-    { id: 'lTRiuFIWV54', name: 'Lofi Study', icon: Coffee }, 
+    { id: 'e94hCLHEEsk', name: 'Lofi Study', icon: Coffee }, 
     { id: 'o4qjk8_5gmU', name: 'Rainy Night', icon: CloudRain }, 
     { id: 'hp_Anj_X_x8', name: 'Deep Library', icon: BookOpen }, 
     { id: 'pu5vm4_BqAs', name: 'Wild Nature', icon: Trees },

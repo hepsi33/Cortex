@@ -14,9 +14,9 @@ if (!process.env.DATABASE_URL) {
 const connectionString = process.env.DATABASE_URL;
 const client = global.postgresClient || postgres(connectionString, { 
     ssl: 'require',
-    max: 2, // Optimized for serverless (prevent connection saturation)
+    max: 10, // Increased to support concurrent indexing/polling
     idle_timeout: 20,
-    connect_timeout: 30
+    connect_timeout: 60
 });
 
 if (process.env.NODE_ENV !== 'production') {

@@ -95,9 +95,9 @@ export function DocumentManager({ workspaceId }: { workspaceId: string | null })
                 }
             }
             fetchDocs();
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            alert("Connection error during upload. Please try again.");
+            alert(`Connection error during upload: ${err?.message || err || 'Unknown error'}. Please try again.`);
         } finally {
             setUploading(false);
             e.target.value = '';

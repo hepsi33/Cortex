@@ -50,6 +50,7 @@ export default async function UserDashboard() {
                 recentDocs={dashboardData.recentDocs}
                 recentChats={dashboardData.recentChats}
                 stats={dashboardData.stats}
+                isGuest={true}
             />
         );
     }
@@ -121,6 +122,7 @@ export default async function UserDashboard() {
             recentDocs={dashboardData.recentDocs}
             recentChats={dashboardData.recentChats}
             stats={dashboardData.stats}
+            isGuest={isGuest}
         />
     );
 }

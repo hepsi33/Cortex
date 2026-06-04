@@ -203,16 +203,20 @@ export function WorkspaceSelector({ currentWorkspace, onWorkspaceChange }: Works
                                         </DropdownMenuItem>
                                     ))}
                                 </ScrollArea>
-                                <DropdownMenuSeparator className="bg-white/5 my-2" />
-                                <DropdownMenuItem onClick={() => {
-                                    setRenameValue(currentWorkspace?.name || '');
-                                    setIsRenaming(true);
-                                }} className="h-12 px-4 rounded-xl hover:bg-white/5 cursor-pointer text-[10px] font-black uppercase tracking-widest">
-                                    <Pencil className="w-3.5 h-3.5 mr-3 text-white/40" /> Rename Space
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={handleDelete} className="h-12 px-4 rounded-xl hover:bg-red-500/10 text-red-400 cursor-pointer text-[10px] font-black uppercase tracking-widest">
-                                    <Trash2 className="w-3.5 h-3.5 mr-3" /> Purge Space
-                                </DropdownMenuItem>
+                                {currentWorkspace && (
+                                    <>
+                                        <DropdownMenuSeparator className="bg-white/5 my-2" />
+                                        <DropdownMenuItem onClick={() => {
+                                            setRenameValue(currentWorkspace.name);
+                                            setIsRenaming(true);
+                                        }} className="h-12 px-4 rounded-xl hover:bg-white/5 cursor-pointer text-[10px] font-black uppercase tracking-widest">
+                                            <Pencil className="w-3.5 h-3.5 mr-3 text-white/40" /> Rename Space
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={handleDelete} className="h-12 px-4 rounded-xl hover:bg-red-500/10 text-red-400 cursor-pointer text-[10px] font-black uppercase tracking-widest">
+                                            <Trash2 className="w-3.5 h-3.5 mr-3" /> Purge Space
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
                                 <DropdownMenuSeparator className="bg-white/5 my-2" />
                                 
                                 {isLimitReached ? (

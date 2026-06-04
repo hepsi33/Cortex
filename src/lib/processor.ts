@@ -6,6 +6,30 @@ import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import { parsePdf, parseDocx, parsePptx, parseImage, parseText } from './file-parsers';
 import { scrapeUrl } from './firecrawl';
 import { hasBudget, isApproachingLimit, recordCall, rateLimit } from './api-budget';
+import { YoutubeTranscript } from 'youtube-transcript';
+
+// ── YouTube Transcript Helpers ──────────────────────────────────────
+
+function cleanCaptionText(input: string): string {
+    if (!input) return '';
+    return input
+        .replace(/\uFEFF/g, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+async function fetchTimedText(videoId: string): Promise<string | null> {
+    try {
+        const res = await fetch(`https://www.youtube.com/api/timedtext?lang=en&v=${videoId}`);
+        const text = await res.text();
+        if (res.ok && text.includes('<text')) return cleanCaptionText(text);
+    } catch { /* ignore */ }
+    return null;
+}
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -243,18 +267,42 @@ export async function processUrl(documentId: string, url: string) {
                 const info = await youtube.getInfo(videoId);
                 title = info.basic_info.title ?? url;
 
+                // Strategy 1: Innertube getTranscript()
                 try {
                     const transcriptData = await info.getTranscript();
                     if (transcriptData?.transcript?.content?.body?.initial_segments) {
                         textContent = transcriptData.transcript.content.body.initial_segments
                             .map((s: any) => s.snippet?.text ?? '')
                             .join(' ');
+                        console.log(`[Processor] ✅ Innertube transcript extracted (${textContent.length} chars)`);
                     }
                 } catch {
-                    console.warn(`[Processor] Transcript unavailable for ${videoId}`);
+                    console.warn(`[Processor] Innertube getTranscript() failed for ${videoId}`);
                 }
 
-                if (!textContent) {
+                // Strategy 2 & 3: Fallback scrapers (youtube-transcript lib + timedtext API)
+                if (!textContent || textContent.trim().length < 50) {
+                    console.log(`[Processor] Trying fallback transcript scrapers for ${videoId}...`);
+                    try {
+                        textContent = await Promise.any([
+                            YoutubeTranscript.fetchTranscript(videoId).then(items => {
+                                const text = items.map(i => i.text).join(' ');
+                                console.log(`[Processor] ✅ youtube-transcript lib succeeded (${text.length} chars)`);
+                                return text;
+                            }),
+                            fetchTimedText(videoId).then(text => {
+                                if (!text) throw new Error('timedtext empty');
+                                console.log(`[Processor] ✅ timedtext API succeeded (${text.length} chars)`);
+                                return text;
+                            }),
+                        ]);
+                    } catch {
+                        console.warn(`[Processor] All fallback scrapers failed for ${videoId}`);
+                    }
+                }
+
+                // Strategy 4: AI Neural Reconstruction from metadata
+                if (!textContent || textContent.trim().length < 50) {
                     console.log(`[Processor] Captions unavailable for ${videoId}. Initiating AI Neural Reconstruction...`);
                     const extractorModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
                     const prompt = `
@@ -273,9 +321,19 @@ export async function processUrl(documentId: string, url: string) {
                     textContent = `[AI RECONSTRUCTED TRANSCRIPT - NO NATIVE CAPTIONS]\n\n${result.response.text()}`;
                 }
             } catch (err: any) {
-                console.warn(`[Processor] Primary YouTube scrapers failed for ${videoId}: ${err.message}. Trying last resort...`);
-                // Final fallback if even the metadata scraper fails
-                textContent = `Title: ${title}\nSource: ${url}\n\n[System Note: This video source was protected or unavailable for deep scraping. Please use a different source if detailed transcripts are required.]`;
+                console.warn(`[Processor] Innertube core failed for ${videoId}: ${err.message}. Trying standalone scrapers...`);
+                
+                // Even if Innertube completely crashes, try the standalone scrapers
+                try {
+                    textContent = await Promise.any([
+                        YoutubeTranscript.fetchTranscript(videoId).then(items => items.map(i => i.text).join(' ')),
+                        fetchTimedText(videoId).then(text => { if (!text) throw new Error(); return text; }),
+                    ]);
+                    console.log(`[Processor] ✅ Standalone scraper recovered transcript (${textContent.length} chars)`);
+                } catch {
+                    // True last resort
+                    textContent = `Title: ${title}\nSource: ${url}\n\n[System Note: This video source was protected or unavailable for deep scraping. Please use a different source if detailed transcripts are required.]`;
+                }
             }
         } else {
             try {

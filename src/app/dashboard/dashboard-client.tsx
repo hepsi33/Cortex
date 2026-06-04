@@ -24,6 +24,7 @@ type DashboardClientProps = {
         totalSpaces: number;
         totalDocs: number;
     };
+    isGuest?: boolean;
 };
 
 export function UserDashboardClient({
@@ -33,7 +34,8 @@ export function UserDashboardClient({
     workspaces,
     recentDocs,
     recentChats,
-    stats
+    stats,
+    isGuest
 }: DashboardClientProps) {
     const searchParams = useSearchParams();
     const [showUpgradeToast, setShowUpgradeToast] = useState(false);
@@ -110,7 +112,7 @@ export function UserDashboardClient({
                     <div className="flex items-center gap-4">
                         {/* Go Pro Button (only if FREE) */}
                         {userPlan === 'FREE' && (
-                            <a href="/pricing" className="px-5 py-2.5 bg-gradient-to-r from-[#e100ff]/10 to-indigo-500/10 hover:from-[#e100ff]/30 hover:to-indigo-500/30 border border-[#e100ff]/30 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-white transition-all flex items-center gap-2 cursor-target backdrop-blur-md">
+                            <a href={isGuest ? "/login?mode=signup" : "/pricing"} className="px-5 py-2.5 bg-gradient-to-r from-[#e100ff]/10 to-indigo-500/10 hover:from-[#e100ff]/30 hover:to-indigo-500/30 border border-[#e100ff]/30 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-white transition-all flex items-center gap-2 cursor-target backdrop-blur-md">
                                 <Sparkles className="w-3.5 h-3.5 text-[#e100ff]" /> Go Pro
                             </a>
                         )}
