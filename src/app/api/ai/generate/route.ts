@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     try {
       // Timeout wrapper for Innertube (prevent Vercel serverless timeout)
       const innertubeTimeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Innertube timed out')), 8000)
+        setTimeout(() => reject(new Error('Innertube timed out')), 30000)
       );
 
       const innertubeWork = (async () => {
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
         console.log("[Transcript] Innertube transcript empty, trying fallback scrapers...");
         try {
           const scraperTimeout = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Scrapers timed out')), 5000)
+            setTimeout(() => reject(new Error('Scrapers timed out')), 15000)
           );
           transcript = await Promise.race([
             Promise.any([
@@ -111,7 +111,7 @@ export async function POST(req: Request) {
       console.error("[Transcript] youtubei.js core failed, trying scrapers:", err);
       try {
         const scraperTimeout = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Scrapers timed out')), 5000)
+          setTimeout(() => reject(new Error('Scrapers timed out')), 15000)
         );
         transcript = await Promise.race([
           Promise.any([
