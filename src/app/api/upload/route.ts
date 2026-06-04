@@ -76,20 +76,44 @@ export async function POST(req: NextRequest) {
             const buffer = Buffer.from(await file.arrayBuffer());
             const fileType = file.type;
             
+            // Resolve MIME type from file extension if the browser provided something unreliable
+            let resolvedType = fileType;
+            if (!resolvedType || resolvedType === 'application/octet-stream' || resolvedType === '') {
+                const ext = file.name.split('.').pop()?.toLowerCase();
+                const extToMime: Record<string, string> = {
+                    'pdf': 'application/pdf',
+                    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'doc': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                    'ppt': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                    'jpg': 'image/jpeg',
+                    'jpeg': 'image/jpeg',
+                    'png': 'image/png',
+                    'gif': 'image/gif',
+                    'webp': 'image/webp',
+                    'txt': 'text/plain',
+                    'md': 'text/markdown',
+                    'csv': 'text/csv',
+                };
+                if (ext && extToMime[ext]) {
+                    resolvedType = extToMime[ext];
+                }
+            }
+
             // 1. Parse Text IMMEDIATELY (Awaited)
             let textContent = '';
-            switch (fileType) {
+            switch (resolvedType) {
                 case 'application/pdf': textContent = await parsePdf(buffer); break;
                 case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': textContent = await parseDocx(buffer); break;
                 case 'application/vnd.openxmlformats-officedocument.presentationml.presentation': textContent = await parsePptx(buffer); break;
                 case 'image/jpeg':
                 case 'image/png':
                 case 'image/gif':
-                case 'image/webp': textContent = await parseImage(buffer, fileType); break;
+                case 'image/webp': textContent = await parseImage(buffer, resolvedType); break;
                 case 'text/plain':
                 case 'text/markdown':
                 case 'text/csv': textContent = await parseText(buffer); break;
-                default: throw new Error(`Unsupported file type: ${fileType}`);
+                default: throw new Error(`Unsupported file type: ${resolvedType} (original: ${fileType})`);
             }
 
             // 2. Insert into DB with content
