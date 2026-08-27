@@ -2,7 +2,7 @@
 
 Cortex is a premium, high-fidelity AI Study Partner designed for elite learners. It synthesizes deep research, distraction-free focus, and automated retrieval practice into a single, unified intelligence repository.
 
-🔗 **Website Link:** [(https://cortex-study-hub.vercel.app/)((https://cortex-study-hub.vercel.app/)) ]
+🔗 **Website Link:** [(https://cortex-study-hub.vercel.app/)]
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=flat-square&logo=typescript)
